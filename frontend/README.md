@@ -1,4 +1,4 @@
-# finsights
+# finsamaritan
 
 A new Flutter project.
 
