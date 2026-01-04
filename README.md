@@ -1,0 +1,2 @@
+# FinSamaritan
+GDG hackathon submission
