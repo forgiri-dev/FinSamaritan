@@ -1,0 +1,20 @@
+# Fixed requirements with compatible versions
+# Install order matters - install numpy first, then pandas
+
+# Step 1: Core dependencies
+numpy>=1.24.0,<2.0.0
+pydantic>=2.5.0,<3.0.0
+
+# Step 2: Web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Step 3: Data processing
+pandas>=2.0.0,<3.0.0
+
+# Step 4: External APIs
+google-generativeai>=0.3.0
+yfinance>=0.2.28
+requests>=2.31.0
+

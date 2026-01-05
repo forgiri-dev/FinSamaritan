@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// Declare React Native global
+declare const __DEV__: boolean;
+
 // Backend API base URL - adjust for your environment
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:8000'  // For Android emulator
