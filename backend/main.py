@@ -8,17 +8,29 @@ from pydantic import BaseModel
 from typing import Optional
 import os
 import base64
+from dotenv import load_dotenv
 import database
 from data_engine import data_engine
 import tools
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Import Gemini - try new package first, fallback to old
+USE_NEW_API = False
+genai = None
+genai_client = None
+
 try:
-    import google.genai as genai
-    print("✅ Using google.genai (new package)")
+    # Try new google-genai package (correct import)
+    from google import genai
+    USE_NEW_API = True
+    print("✅ Using google-genai (new package)")
 except ImportError:
     try:
+        # Fallback to deprecated google-generativeai
         import google.generativeai as genai
+        USE_NEW_API = False
         print("⚠️ Using deprecated google.generativeai. Please install google-genai: pip install google-genai")
     except ImportError:
         raise ImportError("Please install google-genai: pip install google-genai")
@@ -26,10 +38,10 @@ except ImportError:
 # Initialize FastAPI app
 app = FastAPI(title="FinSamaritan API", version="1.0.0")
 
-# CORS middleware for React Native frontend
+# CORS middleware for web frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=["*"],  # In production, specify exact origins (e.g., ["http://localhost:3000"])
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,24 +50,35 @@ app.add_middleware(
 # Initialize Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if not GEMINI_API_KEY:
-    print("⚠️ Warning: GEMINI_API_KEY not set. Please set it as an environment variable.")
+    print("❌ ERROR: GEMINI_API_KEY not set!")
+    print("   Please set it using one of these methods:")
+    print("   1. Create a .env file in the backend directory with: GEMINI_API_KEY=your-api-key")
+    print("   2. Set environment variable:")
+    print("      Windows PowerShell: $env:GEMINI_API_KEY=\"your-api-key\"")
+    print("      Windows CMD: set GEMINI_API_KEY=your-api-key")
+    print("      Linux/Mac: export GEMINI_API_KEY=\"your-api-key\"")
+    print("   See backend/README_ENV_SETUP.md for detailed instructions")
+    raise ValueError("GEMINI_API_KEY environment variable is required")
 
-# Configure API key and detect which package is being used
-USE_NEW_API = hasattr(genai, 'Client')
-genai_client = None
-
+# Configure API key and initialize client
 if USE_NEW_API:
-    # New google.genai uses Client
+    # New google-genai uses Client
     try:
         genai_client = genai.Client(api_key=GEMINI_API_KEY)
-        print("✅ Initialized google.genai Client")
+        print("✅ Initialized google-genai Client")
     except Exception as e:
-        print(f"⚠️ Error initializing new API, falling back: {e}")
+        print(f"❌ Error initializing new API: {e}")
+        print("   Falling back to deprecated google.generativeai")
         USE_NEW_API = False
+        # Re-import old API if we were using new one
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        print("✅ Configured google.generativeai (deprecated)")
 else:
     # Old google.generativeai uses configure
     genai.configure(api_key=GEMINI_API_KEY)
     print("✅ Configured google.generativeai (deprecated)")
+
 
 # Tool definitions (shared for both APIs)
 manager_tools = [
@@ -197,62 +220,77 @@ Guidelines:
 - For Indian stocks, ensure symbols end with .NS (e.g., RELIANCE.NS, TATAPOWER.NS).
 """
 
-# Initialize Manager Agent (Gemini 1.5 Flash)
+# Initialize Manager Agent
+# Use standard gemini-pro model (most widely available)
+manager_model = None
+model_names_to_try = ["gemini-pro"]
+
+# Force use of old API (google.generativeai) which is more stable
 if USE_NEW_API:
-    # New API - may need adjustment based on actual google-genai API structure
-    # For now, try to create model with tools
+    print("⚠️ New API detected, but using old API (google.generativeai) for better compatibility")
+    USE_NEW_API = False
+    import google.generativeai as genai
+    genai.configure(api_key=GEMINI_API_KEY)
+
+# Use old API with standard gemini-pro model
+for model_name in model_names_to_try:
     try:
-        manager_model = genai_client.models.get("gemini-1.5-flash")
-        # Store tools and system instruction for later use
-        manager_model._tools = manager_tools
-        manager_model._system_instruction = manager_system_instruction
-    except Exception as e:
-        print(f"⚠️ Error with new API model initialization: {e}")
-        print("   Falling back to old API structure")
-        USE_NEW_API = False
-        genai.configure(api_key=GEMINI_API_KEY)
         manager_model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name=model_name,
             tools=manager_tools,
             system_instruction=manager_system_instruction
         )
-else:
-    # Old API
-    manager_model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        tools=manager_tools,
-        system_instruction=manager_system_instruction
-    )
+        print(f"✅ Initialized Manager Agent ({model_name})")
+        break
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ Failed to initialize {model_name}: {error_msg[:200]}")
+        if "404" in error_msg or "not found" in error_msg.lower():
+            print(f"   Model {model_name} is not available. Please check your API key permissions at https://makersuite.google.com/app/apikey")
+        continue
+
+if manager_model is None:
+    print("❌ ERROR: Failed to initialize any Gemini model!")
+    print("Tried model names:", model_names_to_try)
+    print("Please check your API key and ensure you have access to at least one of these models.")
+    raise RuntimeError("Failed to initialize any Gemini model. Please check your API key and model availability.")
 
 # Initialize Vision Agent (Gemini 1.5 Pro)
-if USE_NEW_API:
-    vision_model = genai_client.models.get("gemini-1.5-pro")
-    vision_system_instruction = """You are a Financial Chart Analysis Specialist. 
-    Analyze the provided chart image and provide:
-    1. Chart type identification (candlestick, line, bar, etc.)
-    2. Key technical indicators visible
-    3. Trend analysis (bullish, bearish, sideways)
-    4. Support and resistance levels
-    5. Trading recommendations based on technical analysis
-    6. Risk assessment
-    
-    Be precise and professional. Use technical terminology correctly.
-    """
-else:
-    vision_model = genai.GenerativeModel(
-        model_name="gemini-1.5-pro",
-        system_instruction="""You are a Financial Chart Analysis Specialist. 
-        Analyze the provided chart image and provide:
-        1. Chart type identification (candlestick, line, bar, etc.)
-        2. Key technical indicators visible
-        3. Trend analysis (bullish, bearish, sideways)
-        4. Support and resistance levels
-        5. Trading recommendations based on technical analysis
-        6. Risk assessment
-        
-        Be precise and professional. Use technical terminology correctly.
-        """
-    )
+vision_system_instruction = """You are a Financial Chart Analysis Specialist. 
+Analyze the provided chart image and provide:
+1. Chart type identification (candlestick, line, bar, etc.)
+2. Key technical indicators visible
+3. Trend analysis (bullish, bearish, sideways)
+4. Support and resistance levels
+5. Trading recommendations based on technical analysis
+6. Risk assessment
+
+Be precise and professional. Use technical terminology correctly.
+"""
+
+# Initialize Vision Agent
+# Use standard model names - gemini-pro can handle both text and vision
+vision_model = None
+vision_model_names_to_try = ["gemini-pro-vision", "gemini-pro"]
+
+# Initialize vision model using old API (more stable)
+for model_name in vision_model_names_to_try:
+    try:
+        vision_model = genai.GenerativeModel(
+            model_name=model_name,
+            system_instruction=vision_system_instruction
+        )
+        print(f"✅ Initialized Vision Agent ({model_name})")
+        break
+    except Exception as e:
+        print(f"⚠️ Failed to initialize vision model {model_name}: {str(e)[:100]}")
+        continue
+
+if vision_model is None:
+    print("❌ ERROR: Failed to initialize any Gemini vision model!")
+    print("Tried model names:", vision_model_names_to_try)
+    print("Please check your API key and ensure you have access to at least one of these models.")
+    raise RuntimeError("Failed to initialize any Gemini vision model. Please check your API key and model availability.")
 
 # Request/Response models
 class AgentRequest(BaseModel):
@@ -378,18 +416,11 @@ async def analyze_chart_endpoint(request: ChartRequest):
         image_data = base64.b64decode(request.image)
         
         # Analyze with Vision Agent
-        if USE_NEW_API:
-            # New API - adjust based on actual google-genai API
-            response = vision_model.generate_content([
-                "Analyze this financial chart image. Provide detailed technical analysis including trend, support/resistance, and trading recommendations.",
-                {"mime_type": "image/jpeg", "data": image_data}
-            ])
-        else:
-            # Old API
-            response = vision_model.generate_content([
-                "Analyze this financial chart image. Provide detailed technical analysis including trend, support/resistance, and trading recommendations.",
-                {"mime_type": "image/jpeg", "data": image_data}
-            ])
+        # Both APIs use the same generate_content method
+        response = vision_model.generate_content([
+            "Analyze this financial chart image. Provide detailed technical analysis including trend, support/resistance, and trading recommendations.",
+            {"mime_type": "image/jpeg", "data": image_data}
+        ])
         
         return {
             "success": True,

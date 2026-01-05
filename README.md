@@ -8,14 +8,13 @@ FinSamaritan employs a **Hybrid Architecture**:
 
 - **The Cloud Hive (Backend)**: A centralized "Manager Agent" (Gemini) that autonomously routes user intent to 7 specialized Python tools (Quant, Auditor, Portfolio Manager, etc.)
 
-- **The Edge Sentinel (Frontend)**: An offline Neural Network (TensorFlow Lite) running on the user's device that filters visual data in real-time (0.1s latency) before it reaches the cloud.
+- **The Edge Sentinel (Frontend)**: An offline Neural Network (TensorFlow.js) running in the browser that filters visual data in real-time (0.1s latency) before it reaches the cloud.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.8+
 - Node.js 18+
-- Android Studio (for Android) or Xcode (for iOS)
 - Google Gemini API Key ([Get it here](https://makersuite.google.com/app/apikey))
 
 ### Backend Setup
@@ -48,9 +47,10 @@ uvicorn main:app --reload
 ```bash
 cd frontend
 npm install
-npm start  # Terminal 1
-npm run android  # Terminal 2 (or npm run ios for iOS)
+npm run dev
 ```
+
+Then open your browser to `http://localhost:3000`
 
 ## 📚 Documentation
 
@@ -81,8 +81,8 @@ curl -X POST http://localhost:8000/agent \
 
 | Layer | Component | Technology |
 |-------|-----------|------------|
-| Frontend | Mobile App | React Native (TypeScript) |
-| Edge AI | Offline Model | TensorFlow Lite |
+| Frontend | Web App | React (TypeScript) + Vite |
+| Edge AI | Offline Model | TensorFlow.js |
 | Backend | API Server | Python (FastAPI) |
 | Cloud AI | Manager Agent | Gemini 1.5 Flash |
 | Cloud AI | Vision Agent | Gemini 1.5 Pro |
@@ -108,7 +108,7 @@ curl -X POST http://localhost:8000/agent \
 - ✅ **Technical Analysis** - Chart pattern recognition
 - ✅ **Strategy Backtesting** - Test trading strategies
 - ✅ **Data Persistence** - SQLite database
-- ✅ **Edge AI Filtering** - Pre-filter images locally
+- ✅ **Edge AI Filtering** - Pre-filter images locally in browser
 
 ## 📁 Project Structure
 
@@ -127,9 +127,8 @@ FinSamaritan/
 │   │   ├── services/        # Edge Sentinel service
 │   │   ├── screens/         # App screens
 │   │   └── components/      # UI components
-│   └── assets/
-│       ├── model_unquant.tflite  # TensorFlow Lite model
-│       └── labels.txt            # Model labels
+│   ├── index.html           # HTML entry point
+│   └── vite.config.ts       # Vite configuration
 ├── SETUP_AND_TESTING_GUIDE.md   # Complete setup guide
 └── QUICK_START.md                # Quick start guide
 ```
@@ -179,7 +178,7 @@ This is a demonstration project. For production use, consider:
 For setup issues, refer to:
 1. [SETUP_AND_TESTING_GUIDE.md](SETUP_AND_TESTING_GUIDE.md) - Detailed troubleshooting
 2. Backend logs (terminal output)
-3. Frontend Metro bundler logs
+3. Browser console logs
 
 ---
 

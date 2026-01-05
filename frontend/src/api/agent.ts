@@ -1,12 +1,7 @@
 import axios from 'axios';
 
-// Declare React Native global
-declare const __DEV__: boolean;
-
-// Backend API base URL - adjust for your environment
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:8000'  // For Android emulator
-  : 'http://10.0.2.2:8000';   // For Android physical device, adjust IP as needed
+// Backend API base URL - for web, use localhost or your backend URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -60,8 +55,13 @@ export const sendAgentMessage = async (text: string): Promise<string> => {
  */
 export const analyzeChart = async (imageBase64: string): Promise<string> => {
   try {
+    // Remove data URL prefix if present
+    const base64Data = imageBase64.includes(',') 
+      ? imageBase64.split(',')[1] 
+      : imageBase64;
+    
     const response = await api.post<ChartResponse>('/analyze-chart', {
-      image: imageBase64,
+      image: base64Data,
     });
     if (response.data.success) {
       return response.data.analysis;
@@ -89,4 +89,3 @@ export const healthCheck = async (): Promise<boolean> => {
     return false;
   }
 };
-

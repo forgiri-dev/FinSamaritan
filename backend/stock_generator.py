@@ -77,3 +77,4 @@ def generate_stock_data():
 if __name__ == "__main__":
     generate_stock_data()
 
+

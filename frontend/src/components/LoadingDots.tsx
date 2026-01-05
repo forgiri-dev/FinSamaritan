@@ -1,5 +1,5 @@
-import React, {useEffect, useRef} from 'react';
-import {View, Text, StyleSheet, Animated} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import './LoadingDots.css';
 
 /**
  * LoadingDots Component
@@ -7,78 +7,44 @@ import {View, Text, StyleSheet, Animated} from 'react-native';
  * Animated loading indicator with three dots
  */
 export const LoadingDots: React.FC = () => {
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
+  const [dot1Opacity, setDot1Opacity] = useState(0.3);
+  const [dot2Opacity, setDot2Opacity] = useState(0.3);
+  const [dot3Opacity, setDot3Opacity] = useState(0.3);
 
   useEffect(() => {
-    const animate = (dot: Animated.Value, delay: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ])
-      );
+    const animate = (setOpacity: (value: number) => void, delay: number) => {
+      const interval = setInterval(() => {
+        setOpacity(1);
+        setTimeout(() => setOpacity(0.3), 400);
+      }, 800);
+
+      // Initial delay
+      setTimeout(() => {
+        setOpacity(1);
+        setTimeout(() => setOpacity(0.3), 400);
+      }, delay);
+
+      return interval;
     };
 
-    const anim1 = animate(dot1, 0);
-    const anim2 = animate(dot2, 200);
-    const anim3 = animate(dot3, 400);
+    const interval1 = animate(setDot1Opacity, 0);
+    const interval2 = animate(setDot2Opacity, 200);
+    const interval3 = animate(setDot3Opacity, 400);
 
     return () => {
-      anim1.stop();
-      anim2.stop();
-      anim3.stop();
+      clearInterval(interval1);
+      clearInterval(interval2);
+      clearInterval(interval3);
     };
-  }, [dot1, dot2, dot3]);
-
-  const opacity1 = dot1.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
-  });
-
-  const opacity2 = dot2.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
-  });
-
-  const opacity3 = dot3.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
-  });
+  }, []);
 
   return (
-    <View style={styles.container}>
-      <Animated.Text style={[styles.dot, {opacity: opacity1}]}>●</Animated.Text>
-      <Animated.Text style={[styles.dot, {opacity: opacity2}]}>●</Animated.Text>
-      <Animated.Text style={[styles.dot, {opacity: opacity3}]}>●</Animated.Text>
-    </View>
+    <div className="loading-dots-container">
+      <span className="loading-dot" style={{ opacity: dot1Opacity }}>●</span>
+      <span className="loading-dot" style={{ opacity: dot2Opacity }}>●</span>
+      <span className="loading-dot" style={{ opacity: dot3Opacity }}>●</span>
+    </div>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  dot: {
-    fontSize: 12,
-    color: '#666',
-    marginHorizontal: 2,
-  },
-});
-
 export default LoadingDots;
-

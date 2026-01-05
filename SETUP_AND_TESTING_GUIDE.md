@@ -34,14 +34,8 @@ This comprehensive guide will walk you through setting up and testing the entire
    npm --version
    ```
 
-4. **Android Studio** (for Android development)
-   - Android SDK
-   - Android Emulator or Physical Device
-   - JDK 11+
-
-5. **Xcode** (for iOS development - Mac only)
-   - Xcode 14+
-   - CocoaPods
+4. **Modern Web Browser** (Chrome, Firefox, Edge, or Safari)
+   - Chrome recommended for best compatibility
 
 ### Required API Keys
 
@@ -170,7 +164,7 @@ Or visit in browser: `http://localhost:8000/docs` (FastAPI Swagger UI)
 
 ---
 
-## 📱 Frontend Setup
+## 🌐 Frontend Setup
 
 ### Step 1: Navigate to Frontend Directory
 
@@ -186,80 +180,57 @@ npm install
 
 **Expected output:**
 ```
-added 500+ packages in 30s
+added 200+ packages in 20s
 ```
 
 ### Step 3: Configure API Endpoint (if needed)
 
 Edit `frontend/src/api/agent.ts` if your backend is not on `localhost:8000`:
 
-- **Android Emulator:** Use `http://10.0.2.2:8000`
-- **Physical Device:** Use your computer's IP address (e.g., `http://192.168.1.100:8000`)
-- **iOS Simulator:** Use `http://localhost:8000`
+- **Default:** `http://localhost:8000`
+- **Custom Backend:** Set `VITE_API_URL` environment variable or edit the file directly
 
-### Step 4: Start Metro Bundler
+### Step 4: Start Development Server
 
-**Terminal 1:**
 ```bash
-npm start
+npm run dev
 ```
 
 **Expected output:**
 ```
-Welcome to Metro!
-...
-Metro waiting on exp://192.168.1.100:8081
+  VITE v5.0.8  ready in 500 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
 ```
 
-### Step 5: Run on Android
+### Step 5: Open in Browser
 
-**Terminal 2 (new terminal):**
-```bash
-npm run android
+Open your web browser and navigate to:
+```
+http://localhost:3000
 ```
 
-**Or for iOS (Mac only):**
-```bash
-npm run ios
-```
-
-**Expected output:**
-```
-info Running "FinSights" on "Pixel_5_API_33"
-...
-BUILD SUCCESSFUL
-```
-
-The app should launch on your emulator/device.
+The app should load in your browser.
 
 ---
 
 ## 🤖 Model Verification
 
-### Step 1: Verify Model Files Exist
-
-Check that these files exist:
-```bash
-ls frontend/assets/
-```
-
-**Should show:**
-- `model_unquant.tflite` (TensorFlow Lite model)
-- `labels.txt` (Model labels)
-
-### Step 2: Verify Model Integration
+### Step 1: Verify Model Integration
 
 The Edge Sentinel service is implemented in `frontend/src/services/EdgeSentinel.ts`.
 
 **Current Status:**
 - ✅ Service structure is ready
 - ✅ Placeholder implementation for testing
-- ⚠️ Full TFLite integration requires `react-native-fast-tflite` (optional for basic testing)
+- ⚠️ Full TensorFlow.js integration requires model conversion (optional for basic testing)
 
-**For Production TFLite Integration:**
-1. Install: `npm install react-native-fast-tflite`
-2. Uncomment the production code in `EdgeSentinel.ts` (lines 191-242)
-3. Rebuild the app
+**For Production TensorFlow.js Integration:**
+1. Convert TensorFlow Lite model to TensorFlow.js format
+2. Load the model in `EdgeSentinel.ts`
+3. Implement proper image preprocessing
 
 **For Testing:**
 - The placeholder implementation will work for basic functionality testing
@@ -392,14 +363,14 @@ curl -X POST http://localhost:8000/analyze-chart \
 
 #### Test 1: App Launch
 
-1. Launch the app on emulator/device
+1. Open `http://localhost:3000` in your browser
 2. You should see the welcome message from FinSights AI
 3. Chat interface should be visible
 
 #### Test 2: Text Query
 
 1. Type: "What is the price of TCS.NS?"
-2. Press Send
+2. Press Send or Enter
 3. **Expected:** AI responds with current stock price
 
 #### Test 3: Portfolio Management
@@ -416,8 +387,8 @@ curl -X POST http://localhost:8000/analyze-chart \
 
 #### Test 5: Image Upload (Edge Sentinel)
 
-1. Tap the image icon in chat
-2. Select a financial chart image
+1. Click the image icon (📷) in chat
+2. Select a financial chart image from your computer
 3. **Expected:**
    - Edge Sentinel processes image (0.1s)
    - If valid chart: Shows pattern detection
@@ -432,10 +403,9 @@ curl -X POST http://localhost:8000/analyze-chart \
 #### Test 7: Persistence Test
 
 1. Add stocks to portfolio
-2. Close the app completely
-3. Reopen the app
-4. Ask: "Show my portfolio"
-5. **Expected:** Portfolio data persists (SQLite)
+2. Refresh the browser
+3. Ask: "Show my portfolio"
+4. **Expected:** Portfolio data persists (SQLite on backend)
 
 ### Integration Testing
 
@@ -519,39 +489,37 @@ del fin_samaritan.db  # Windows
 **Solution:**
 1. Verify backend is running: `curl http://localhost:8000/`
 2. Check API URL in `frontend/src/api/agent.ts`
-3. For Android emulator, use `http://10.0.2.2:8000`
-4. For physical device, use your computer's IP address
+3. Check browser console for CORS errors
+4. Verify backend CORS is configured correctly
 
-#### Issue: Metro bundler won't start
-
-**Solution:**
-```bash
-# Clear cache
-npm start -- --reset-cache
-
-# Or
-watchman watch-del-all  # If using watchman
-```
-
-#### Issue: Build fails on Android
+#### Issue: Vite dev server won't start
 
 **Solution:**
 ```bash
-cd android
-./gradlew clean
-cd ..
-npm run android
+# Clear cache and node_modules
+rm -rf node_modules package-lock.json
+npm install
+
+# Or check if port 3000 is in use
+# Use a different port: npm run dev -- --port 3001
 ```
 
-#### Issue: App crashes on image upload
+#### Issue: Build fails
 
 **Solution:**
-1. Check permissions in `AndroidManifest.xml`:
-   ```xml
-   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-   <uses-permission android:name="android.permission.CAMERA" />
-   ```
-2. For Android 13+, request runtime permissions
+```bash
+# Check TypeScript errors
+npm run build
+
+# Fix any type errors shown
+```
+
+#### Issue: Image upload not working
+
+**Solution:**
+1. Check browser console for errors
+2. Verify file input is working (check browser permissions)
+3. Ensure image file is valid (jpg, png, etc.)
 
 ### Model Issues
 
@@ -559,19 +527,15 @@ npm run android
 
 **Solution:**
 - Current implementation uses placeholder logic
-- For production, integrate actual TFLite model
+- For production, integrate actual TensorFlow.js model
 - Check `frontend/src/services/EdgeSentinel.ts` for implementation
 
-#### Issue: Model file not found
+#### Issue: Model integration
 
 **Solution:**
-```bash
-# Verify files exist
-ls frontend/assets/model_unquant.tflite
-ls frontend/assets/labels.txt
-
-# If missing, re-download or regenerate from Teachable Machine
-```
+- Current implementation uses simulated detection
+- For production, convert TensorFlow Lite model to TensorFlow.js format
+- Load model in browser using TensorFlow.js
 
 ---
 
@@ -590,7 +554,7 @@ Before considering the setup complete, verify:
 
 ### Frontend
 - [ ] App builds successfully
-- [ ] App launches on emulator/device
+- [ ] App loads in browser at `http://localhost:3000`
 - [ ] Welcome message appears
 - [ ] Can send text messages
 - [ ] Can upload images
@@ -615,8 +579,9 @@ Expected performance metrics:
 - **Cache Initialization:** 2-3 minutes (one-time)
 - **Agent Response:** 2-5 seconds
 - **Chart Analysis:** 3-8 seconds
-- **Edge Sentinel:** < 0.1 seconds (local)
+- **Edge Sentinel:** < 0.1 seconds (browser-based)
 - **Database Queries:** < 50ms
+- **Frontend Load Time:** < 2 seconds
 
 ---
 

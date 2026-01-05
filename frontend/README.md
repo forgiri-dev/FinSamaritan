@@ -1,157 +1,109 @@
-# FinSights Frontend
+# FinSights Web Frontend
 
-React Native frontend for FinSights - The Hybrid Agentic Financial Platform.
+React web application for FinSamaritan - The Hybrid Agentic Financial Platform.
 
-## Features
+## 🚀 Quick Start
 
-- **Agent Chat Interface**: Interactive chat with the AI Wealth Manager using GiftedChat
-- **Edge Sentinel**: Local TensorFlow Lite model to filter non-chart images before cloud processing
-- **Markdown Rendering**: Beautiful formatting for tables, bold text, and structured responses
-- **Image Analysis**: Upload chart images for technical analysis via Gemini Vision
+### Prerequisites
+- Node.js 18+
+- npm or yarn
 
-## Prerequisites
+### Installation
 
-- Node.js >= 18
-- React Native development environment set up
-- Android Studio (for Android) or Xcode (for iOS)
-- Backend server running on `http://localhost:8000`
-
-## Installation
-
-1. Install dependencies:
 ```bash
-cd frontend
 npm install
 ```
 
-2. For iOS (if developing on Mac):
+### Development
+
 ```bash
-cd ios
-pod install
-cd ..
+npm run dev
 ```
 
-## Running the App
+Then open your browser to `http://localhost:3000`
 
-### Android
+### Build for Production
+
 ```bash
-# Start Metro bundler
-npm start
-
-# In another terminal, run Android
-npm run android
+npm run build
 ```
 
-### iOS
+The built files will be in the `dist` directory.
+
+### Preview Production Build
+
 ```bash
-# Start Metro bundler
-npm start
-
-# In another terminal, run iOS
-npm run ios
+npm run preview
 ```
 
-## Configuration
-
-### Backend URL
-
-Update the API base URL in `src/api/agent.ts`:
-
-```typescript
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:8000'  // Android emulator
-  : 'http://YOUR_IP:8000';   // Physical device - replace YOUR_IP
-```
-
-For physical devices, use your computer's local IP address (e.g., `192.168.1.100:8000`).
-
-### Edge Sentinel Model
-
-The Edge Sentinel service (`src/services/EdgeSentinel.ts`) currently uses a placeholder implementation. To integrate the actual TensorFlow Lite model:
-
-1. Train your model using Teachable Machine or TensorFlow
-2. Export as TensorFlow Lite (`.tflite`)
-3. Place the model in `assets/model_unquant.tflite`
-4. Install a React Native TFLite library (e.g., `react-native-fast-tflite`)
-5. Update `EdgeSentinel.ts` to load and use the actual model
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 frontend/
 ├── src/
-│   ├── api/
-│   │   └── agent.ts          # Backend API client
-│   ├── components/
-│   │   ├── ChatBubble.tsx     # Custom chat bubble
-│   │   ├── LoadingDots.tsx   # Loading indicator
-│   │   └── MarkdownView.tsx  # Markdown renderer
-│   ├── navigation/
-│   │   └── AppNavigator.tsx   # Navigation setup
-│   ├── screens/
-│   │   ├── AgentChatScreen.tsx  # Main chat interface
-│   │   ├── DashboardScreen.tsx   # Dashboard (placeholder)
-│   │   └── ChartDoctorScreen.tsx # Chart analysis (placeholder)
-│   └── services/
-│       └── EdgeSentinel.ts    # TFLite image classifier
-├── assets/
-│   ├── model_unquant.tflite   # Edge Sentinel model
-│   └── labels.txt             # Model labels
-├── App.tsx                    # App entry point
-└── package.json
+│   ├── api/              # Backend API client
+│   ├── components/       # Reusable UI components
+│   ├── screens/          # Main application screens
+│   ├── services/         # Edge Sentinel service
+│   ├── App.tsx           # Main app component
+│   └── main.tsx          # Entry point
+├── index.html            # HTML template
+├── vite.config.ts        # Vite configuration
+└── package.json          # Dependencies
 ```
 
-## Key Components
+## 🛠️ Tech Stack
 
-### AgentChatScreen
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **React Markdown** - Markdown rendering
+- **Axios** - HTTP client
+- **TensorFlow.js** - Edge AI (for future model integration)
 
-The main chat interface where users interact with the AI agent. Features:
-- Text-based queries
-- Image upload with Edge Sentinel filtering
-- Markdown-formatted responses
-- Loading indicators
+## 🔧 Configuration
 
-### Edge Sentinel
+### API Endpoint
 
-Local image classification service that:
-- Filters out non-chart images (selfies, random objects)
-- Saves server costs and reduces latency
-- Runs entirely on-device (0.1s latency)
+Set the backend API URL via environment variable:
 
-### API Service
+```bash
+# .env file
+VITE_API_URL=http://localhost:8000
+```
 
-Handles communication with the backend:
-- `/agent` - Text queries to the Manager Agent
-- `/analyze-chart` - Chart image analysis via Vision Agent
+Or edit `src/api/agent.ts` directly.
 
-## Troubleshooting
+## 📝 Features
 
-### Backend Connection Issues
+- ✅ Chat interface with AI agent
+- ✅ Markdown rendering for formatted responses
+- ✅ Image upload for chart analysis
+- ✅ Edge Sentinel image filtering
+- ✅ Responsive design
+- ✅ Real-time messaging
 
-- Ensure backend is running: `cd backend && uvicorn main:app --reload`
-- Check API URL in `src/api/agent.ts`
-- For physical devices, ensure phone and computer are on same network
-- Check firewall settings
+## 🐛 Troubleshooting
 
-### Image Upload Issues
+**Port already in use:**
+```bash
+npm run dev -- --port 3001
+```
 
-- Ensure `react-native-image-picker` permissions are granted
-- For Android, add permissions to `AndroidManifest.xml`
-- For iOS, add permissions to `Info.plist`
+**Build errors:**
+```bash
+# Check TypeScript errors
+npm run build
+```
 
-### Metro Bundler Issues
+**API connection issues:**
+- Verify backend is running on `http://localhost:8000`
+- Check browser console for CORS errors
+- Verify `VITE_API_URL` environment variable
 
-- Clear cache: `npm start -- --reset-cache`
-- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
+## 📚 Documentation
 
-## Development Notes
-
-- The app uses TypeScript for type safety
-- GiftedChat provides the chat UI foundation
-- Markdown rendering is essential for displaying portfolio tables and formatted responses
-- Edge Sentinel is a key differentiator - it's not just a wrapper, it's a hybrid architecture
-
-## License
-
-See main project LICENSE file.
-
+For complete setup instructions, see:
+- [Main README](../README.md)
+- [Setup Guide](../SETUP_AND_TESTING_GUIDE.md)
+- [Quick Start](../QUICK_START.md)

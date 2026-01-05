@@ -1,8 +1,21 @@
 @echo off
+REM Change to the script's directory (backend folder)
+cd /d "%~dp0"
+
 echo ========================================
 echo FinSamaritan Backend Startup Script
 echo ========================================
 echo.
+echo Current directory: %CD%
+echo.
+
+REM Refresh environment variables from registry (for system/user variables)
+call refreshenv >nul 2>&1
+if errorlevel 1 (
+    REM If refreshenv doesn't exist, try to refresh manually
+    for /f "tokens=2*" %%a in ('reg query "HKCU\Environment" /v GEMINI_API_KEY 2^>nul') do set GEMINI_API_KEY=%%b
+    for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v GEMINI_API_KEY 2^>nul') do set GEMINI_API_KEY=%%b
+)
 
 REM Check if virtual environment exists
 if not exist "venv" (
@@ -35,15 +48,61 @@ if errorlevel 1 (
     )
 )
 
-REM Check for GEMINI_API_KEY
+REM Check for GEMINI_API_KEY in environment or .env file
+REM If .env file exists, Python will load it automatically via dotenv
 if "%GEMINI_API_KEY%"=="" (
+    if exist ".env" (
+        echo Found .env file - Python will load GEMINI_API_KEY from it
+        echo Continuing startup...
+        goto :continue_start
+    )
+    
     echo.
-    echo WARNING: GEMINI_API_KEY environment variable is not set!
-    echo Please set it using:
+    echo ========================================
+    echo ERROR: GEMINI_API_KEY is not set!
+    echo ========================================
+    echo.
+    echo Please set it using one of these methods:
+    echo.
+    echo Method 1: Create .env file (EASIEST - Recommended)
+    echo   1. Create a file named .env in the backend directory
+    echo   2. Add this line: GEMINI_API_KEY=your-api-key-here
+    echo   3. Save the file and run this script again
+    echo   4. Make sure the file is named exactly .env (not .env.txt)
+    echo.
+    echo Method 2: Set in this session (temporary)
     echo   set GEMINI_API_KEY=your-api-key-here
+    echo   Then run this script again
+    echo.
+    echo Method 3: Set permanently in System Variables
+    echo   1. Open System Properties ^> Environment Variables
+    echo   2. Add new User variable: GEMINI_API_KEY
+    echo   3. Set value to your API key
+    echo   4. CLOSE AND REOPEN this terminal, then run this script
+    echo   (Note: Existing terminals don't see new system variables)
+    echo.
+    echo Get your API key from: https://makersuite.google.com/app/apikey
+    echo.
+    echo Current directory: %CD%
+    echo Checking for .env file in: %CD%\.env
+    if exist ".env" (
+        echo .env file EXISTS in %CD%
+        echo File contents:
+        type .env
+        echo.
+        echo If the file looks correct, the script will continue and Python will load it.
+        echo Press any key to continue anyway, or CTRL+C to exit...
+        pause >nul
+        goto :continue_start
+    ) else (
+        echo .env file NOT FOUND in current directory: %CD%
+    )
     echo.
     pause
+    exit /b 1
 )
+
+:continue_start
 
 REM Initialize database (will be done automatically on startup)
 echo.

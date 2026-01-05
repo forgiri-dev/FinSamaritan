@@ -1,18 +1,17 @@
-import React, {useState, useCallback, useEffect} from 'react';
-import {
-  View,
-  StyleSheet,
-  Alert,
-  Platform,
-  KeyboardAvoidingView,
-  StatusBar,
-} from 'react-native';
-import {GiftedChat, IMessage, InputToolbar, Actions, Composer, Bubble} from 'react-native-gifted-chat';
-import {launchImageLibrary, ImagePickerResponse, Asset} from 'react-native-image-picker';
-import {sendAgentMessage, analyzeChart} from '../api/agent';
-import {scanImage, ChartAnalysis} from '../services/EdgeSentinel';
-import {MarkdownView} from '../components/MarkdownView';
-import {LoadingDots} from '../components/LoadingDots';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { sendAgentMessage, analyzeChart } from '../api/agent';
+import { scanImage, ChartAnalysis } from '../services/EdgeSentinel';
+import { MarkdownView } from '../components/MarkdownView';
+import { LoadingDots } from '../components/LoadingDots';
+import './AgentChatScreen.css';
+
+export interface Message {
+  id: number;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+  imageUrl?: string;
+}
 
 /**
  * AgentChatScreen
@@ -24,360 +23,270 @@ import {LoadingDots} from '../components/LoadingDots';
  * - Markdown rendering for formatted responses
  */
 export const AgentChatScreen: React.FC = () => {
-  const [messages, setMessages] = useState<IMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Welcome message
     setMessages([
       {
-        _id: 1,
+        id: 1,
         text: '👋 Welcome to FinSights! I\'m your AI Wealth Manager.\n\nI can help you:\n• Manage your portfolio\n• Analyze stocks\n• Screen investments\n• Backtest strategies\n• Compare peers\n• Analyze chart images\n\nHow can I assist you today?',
-        createdAt: new Date(),
-        user: {
-          _id: 2,
-          name: 'FinSights AI',
-        },
+        isUser: false,
+        timestamp: new Date(),
       },
     ]);
   }, []);
 
-  const onSend = useCallback(async (newMessages: IMessage[] = []) => {
-    setMessages((previousMessages) =>
-      GiftedChat.append(previousMessages, newMessages)
-    );
+  useEffect(() => {
+    // Scroll to bottom when new messages arrive
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-    const userMessage = newMessages[0];
-    if (!userMessage.text) return;
+  const handleSend = useCallback(async () => {
+    if (!inputText.trim() || isLoading) return;
 
+    const userMessage: Message = {
+      id: Date.now(),
+      text: inputText,
+      isUser: true,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputText('');
     setIsLoading(true);
 
     try {
-      const response = await sendAgentMessage(userMessage.text);
+      const response = await sendAgentMessage(inputText);
       
-      const aiMessage: IMessage = {
-        _id: Math.round(Math.random() * 1000000),
+      const aiMessage: Message = {
+        id: Date.now() + 1,
         text: response,
-        createdAt: new Date(),
-        user: {
-          _id: 2,
-          name: 'FinSights AI',
-        },
+        isUser: false,
+        timestamp: new Date(),
       };
 
-      setMessages((previousMessages) =>
-        GiftedChat.append(previousMessages, [aiMessage])
-      );
+      setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
-      const errorMessage: IMessage = {
-        _id: Math.round(Math.random() * 1000000),
+      const errorMessage: Message = {
+        id: Date.now() + 1,
         text: `❌ Error: ${error.message}\n\nPlease make sure the backend server is running.`,
-        createdAt: new Date(),
-        user: {
-          _id: 2,
-          name: 'FinSights AI',
-        },
+        isUser: false,
+        timestamp: new Date(),
       };
 
-      setMessages((previousMessages) =>
-        GiftedChat.append(previousMessages, [errorMessage])
-      );
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [inputText, isLoading]);
 
-  const handleImagePicker = useCallback(() => {
-    const options = {
-      mediaType: 'photo' as const,
-      quality: 0.8,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      includeBase64: true, // Get base64 directly from image picker
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+    // Auto-resize textarea
+    e.target.style.height = 'auto';
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+  };
+
+  const handleImageSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Show user that image is being processed
+    const processingMessage: Message = {
+      id: Date.now(),
+      text: '🖼️ Processing image...',
+      isUser: true,
+      timestamp: new Date(),
+      imageUrl: URL.createObjectURL(file),
     };
 
-    launchImageLibrary(options, async (response: ImagePickerResponse) => {
-      if (response.didCancel || response.errorCode) {
-        return;
-      }
+    setMessages((prev) => [...prev, processingMessage]);
 
-      const asset = response.assets?.[0];
-      if (!asset?.uri) return;
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
 
-      // Show user that image is being processed
-      const processingMessage: IMessage = {
-        _id: Math.round(Math.random() * 1000000),
-        text: '🖼️ Processing image...',
-        createdAt: new Date(),
-        user: {
-          _id: 1,
-        },
-      };
+        try {
+          // Step 1: Edge Sentinel - Analyze chart patterns and trends
+          const chartAnalysis = await scanImage(base64String);
 
-      setMessages((previousMessages) =>
-        GiftedChat.append(previousMessages, [processingMessage])
-      );
+          if (!chartAnalysis.isChart) {
+            // Remove processing message
+            setMessages((prev) =>
+              prev.filter((msg) => msg.id !== processingMessage.id)
+            );
 
-      try {
-        // Step 1: Edge Sentinel - Analyze chart patterns and trends
-        const chartAnalysis = await scanImage(asset.uri);
+            alert('Not a Chart - Edge Sentinel detected this is not a financial chart. Please upload a chart image.');
+            return;
+          }
 
-        if (!chartAnalysis.isChart) {
-          // Remove processing message
-          setMessages((previousMessages) =>
-            previousMessages.filter((msg) => msg._id !== processingMessage._id)
-          );
+          // Show detected pattern and trend
+          let patternInfo = '';
+          if (chartAnalysis.pattern && chartAnalysis.trend) {
+            patternInfo = `📊 Edge Sentinel detected: ${chartAnalysis.pattern} pattern in ${chartAnalysis.trend} trend\n\n`;
+          }
 
-          Alert.alert(
-            'Not a Chart',
-            'The Edge Sentinel detected this is not a financial chart. Please upload a chart image.',
-            [{text: 'OK'}]
-          );
-          return;
-        }
-
-        // Show detected pattern and trend
-        if (chartAnalysis.pattern && chartAnalysis.trend) {
-          const patternInfo = `📊 Edge Sentinel detected: ${chartAnalysis.pattern} pattern in ${chartAnalysis.trend} trend`;
-          setMessages((previousMessages) =>
-            previousMessages.map((msg) =>
-              msg._id === processingMessage._id
+          // Update processing message
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === processingMessage.id
                 ? {
                     ...msg,
-                    text: `${patternInfo}\n\n🔍 Analyzing chart with Vision Agent...`,
+                    text: `${patternInfo}🔍 Analyzing chart with Vision Agent...`,
+                    isUser: false,
                   }
                 : msg
             )
           );
+
+          // Step 2: Send to backend for analysis
+          setIsLoading(true);
+
+          const analysis = await analyzeChart(base64String);
+
+          // Replace processing message with analysis
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === processingMessage.id
+                ? {
+                    ...msg,
+                    id: Date.now() + 1,
+                    text: analysis,
+                    isUser: false,
+                  }
+                : msg
+            )
+          );
+        } catch (error: any) {
+          // Remove processing message
+          setMessages((prev) =>
+            prev.filter((msg) => msg.id !== processingMessage.id)
+          );
+
+          const errorMessage: Message = {
+            id: Date.now() + 1,
+            text: `❌ Error analyzing chart: ${error.message}`,
+            isUser: false,
+            timestamp: new Date(),
+          };
+
+          setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+          setIsLoading(false);
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
         }
+      };
 
-        // Step 2: Get base64 from image picker response
-        let base64Image: string;
-        if (asset.base64) {
-          base64Image = `data:${asset.type || 'image/jpeg'};base64,${asset.base64}`;
-        } else {
-          // Fallback: if base64 not available, we need to read the file
-          // For now, show an error
-          throw new Error('Could not read image data. Please try again.');
-        }
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      // Remove processing message
+      setMessages((prev) =>
+        prev.filter((msg) => msg.id !== processingMessage.id)
+      );
 
-        // Step 3: Send to backend for analysis
-        setIsLoading(true);
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        text: `❌ Error: ${error.message}`,
+        isUser: false,
+        timestamp: new Date(),
+      };
 
-        // Update processing message
-        setMessages((previousMessages) =>
-          previousMessages.map((msg) =>
-            msg._id === processingMessage._id
-              ? {
-                  ...msg,
-                  text: '🔍 Analyzing chart with Vision Agent...',
-                }
-              : msg
-          )
-        );
-
-        const analysis = await analyzeChart(base64Image);
-
-        // Replace processing message with analysis
-        setMessages((previousMessages) =>
-          previousMessages.map((msg) =>
-            msg._id === processingMessage._id
-              ? {
-                  ...msg,
-                  _id: Math.round(Math.random() * 1000000),
-                  text: analysis,
-                  user: {
-                    _id: 2,
-                    name: 'FinSights AI',
-                  },
-                }
-              : msg
-          )
-        );
-      } catch (error: any) {
-        // Remove processing message
-        setMessages((previousMessages) =>
-          previousMessages.filter((msg) => msg._id !== processingMessage._id)
-        );
-
-        const errorMessage: IMessage = {
-          _id: Math.round(Math.random() * 1000000),
-          text: `❌ Error analyzing chart: ${error.message}`,
-          createdAt: new Date(),
-          user: {
-            _id: 2,
-            name: 'FinSights AI',
-          },
-        };
-
-        setMessages((previousMessages) =>
-          GiftedChat.append(previousMessages, [errorMessage])
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    });
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   }, []);
-
-  const renderBubble = useCallback((props: any) => {
-    return (
-      <Bubble
-        {...props}
-        wrapperStyle={{
-          left: styles.leftBubbleWrapper,
-          right: styles.rightBubbleWrapper,
-        }}
-        textStyle={{
-          left: styles.leftBubbleText,
-          right: styles.rightBubbleText,
-        }}
-      />
-    );
-  }, []);
-
-  const renderMessageText = useCallback((props: any) => {
-    return (
-      <View style={styles.messageTextContainer}>
-        <MarkdownView content={props.currentMessage?.text || ''} />
-      </View>
-    );
-  }, []);
-
-  const renderInputToolbar = useCallback((props: any) => {
-    return (
-      <InputToolbar
-        {...props}
-        containerStyle={styles.inputToolbar}
-        primaryStyle={styles.inputPrimary}
-      />
-    );
-  }, []);
-
-  const renderComposer = useCallback((props: any) => {
-    return (
-      <Composer
-        {...props}
-        textInputStyle={styles.composer}
-        placeholder="Ask about stocks, portfolio, or upload a chart..."
-      />
-    );
-  }, []);
-
-  const renderActions = useCallback((props: any) => {
-    return (
-      <Actions
-        {...props}
-        containerStyle={styles.actionsContainer}
-        icon={() => (
-          <View style={styles.imageButton}>
-            <View style={styles.imageIcon} />
-          </View>
-        )}
-        onPressActionButton={handleImagePicker}
-      />
-    );
-  }, [handleImagePicker]);
-
-  const renderLoading = useCallback(() => {
-    if (!isLoading) return null;
-    return (
-      <View style={styles.loadingContainer}>
-        <LoadingDots />
-      </View>
-    );
-  }, [isLoading]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <StatusBar barStyle="dark-content" />
-      <GiftedChat
-        messages={messages}
-        onSend={onSend}
-        user={{
-          _id: 1,
-        }}
-        renderBubble={renderBubble}
-        renderMessageText={renderMessageText}
-        renderInputToolbar={renderInputToolbar}
-        renderComposer={renderComposer}
-        renderActions={renderActions}
-        renderLoading={renderLoading}
-        placeholder="Ask about stocks, portfolio, or upload a chart..."
-        alwaysShowSend
-        scrollToBottom
-        showUserAvatar={false}
-        showAvatarForEveryMessage={false}
-        minInputToolbarHeight={60}
-      />
-    </KeyboardAvoidingView>
+    <div className="chat-screen">
+      <div className="chat-header">
+        <h1>FinSights AI</h1>
+        <p>Your AI Wealth Manager</p>
+      </div>
+
+      <div className="chat-messages">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`message ${message.isUser ? 'message-user' : 'message-ai'}`}
+          >
+            {message.imageUrl && (
+              <img
+                src={message.imageUrl}
+                alt="Uploaded chart"
+                className="message-image"
+              />
+            )}
+            <div className="message-content">
+              <MarkdownView content={message.text} />
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="message message-ai">
+            <div className="message-content">
+              <LoadingDots />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="chat-input-container">
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          onChange={handleImageSelect}
+          style={{ display: 'none' }}
+        />
+        <button
+          className="image-button"
+          onClick={() => fileInputRef.current?.click()}
+          title="Upload chart image"
+        >
+          📷
+        </button>
+        <textarea
+          className="chat-input"
+          value={inputText}
+          onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
+          placeholder="Ask about stocks, portfolio, or upload a chart..."
+          rows={1}
+          disabled={isLoading}
+        />
+        <button
+          className="send-button"
+          onClick={handleSend}
+          disabled={!inputText.trim() || isLoading}
+        >
+          Send
+        </button>
+      </div>
+    </div>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  leftBubbleWrapper: {
-    marginBottom: 4,
-  },
-  rightBubbleWrapper: {
-    marginBottom: 4,
-  },
-  leftBubbleText: {
-    color: '#333',
-  },
-  rightBubbleText: {
-    color: '#fff',
-  },
-  messageTextContainer: {
-    padding: 4,
-  },
-  inputToolbar: {
-    backgroundColor: '#f5f5f5',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  inputPrimary: {
-    alignItems: 'center',
-  },
-  composer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    maxHeight: 100,
-  },
-  actionsContainer: {
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  imageButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageIcon: {
-    width: 20,
-    height: 20,
-    backgroundColor: '#fff',
-    borderRadius: 4,
-  },
-  loadingContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-});
-
 export default AgentChatScreen;
-

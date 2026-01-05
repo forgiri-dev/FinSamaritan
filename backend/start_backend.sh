@@ -38,11 +38,24 @@ fi
 # Check for GEMINI_API_KEY
 if [ -z "$GEMINI_API_KEY" ]; then
     echo ""
-    echo "WARNING: GEMINI_API_KEY environment variable is not set!"
-    echo "Please set it using:"
-    echo "  export GEMINI_API_KEY='your-api-key-here'"
+    echo "========================================"
+    echo "ERROR: GEMINI_API_KEY is not set!"
+    echo "========================================"
     echo ""
-    read -p "Press enter to continue anyway, or CTRL+C to exit..."
+    echo "Please set it using one of these methods:"
+    echo ""
+    echo "Method 1: Set in this session (temporary)"
+    echo "  export GEMINI_API_KEY='your-api-key-here'"
+    echo "  Then run this script again"
+    echo ""
+    echo "Method 2: Set permanently (recommended)"
+    echo "  Add to ~/.bashrc or ~/.zshrc:"
+    echo "  export GEMINI_API_KEY='your-api-key-here'"
+    echo "  Then run: source ~/.bashrc"
+    echo ""
+    echo "Get your API key from: https://makersuite.google.com/app/apikey"
+    echo ""
+    exit 1
 fi
 
 # Initialize database (will be done automatically on startup)

@@ -26,15 +26,10 @@ uvicorn main:app --reload
 ```powershell
 cd frontend
 npm install
-npm start
+npm run dev
 ```
 
-### Frontend (Terminal 3)
-
-```powershell
-cd frontend
-npm run android
-```
+Then open your browser to `http://localhost:3000`
 
 ## 🧪 Quick Test
 
@@ -50,9 +45,9 @@ Or manually:
 curl http://localhost:8000/health
 ```
 
-## 📱 Test in App
+## 🌐 Test in Browser
 
-1. Open the app on your emulator/device
+1. Open `http://localhost:3000` in Chrome
 2. Type: "What is the price of RELIANCE.NS?"
 3. You should get a response!
 
@@ -70,9 +65,8 @@ curl http://localhost:8000/health
 - Ensure all dependencies are installed
 
 **Frontend can't connect:**
-- Verify backend is running
-- Check API URL in `frontend/src/api/agent.ts`
-- For Android emulator, use `http://10.0.2.2:8000`
+- Verify backend is running on `http://localhost:8000`
+- Check browser console for errors
+- Ensure CORS is properly configured
 
 **For detailed setup, see:** `SETUP_AND_TESTING_GUIDE.md`
-

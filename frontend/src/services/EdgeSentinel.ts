@@ -1,19 +1,17 @@
 /**
  * Edge Sentinel Service
  * 
- * This service uses TensorFlow Lite to classify financial chart images locally.
+ * This service uses TensorFlow.js to classify financial chart images locally.
  * It detects:
  * - Candlestick patterns (Hammer, Doji, Engulfing, etc.)
  * - Trend analysis (Uptrend, Downtrend, Sideways)
  * 
- * This runs entirely on-device before sending images to the cloud, saving
+ * This runs entirely in the browser before sending images to the cloud, saving
  * server costs and reducing latency.
  * 
- * Note: For production, you would use react-native-fast-tflite or similar library.
- * This is a placeholder implementation that can be enhanced with actual TFLite integration.
+ * Note: For production, you would load the actual TensorFlow.js model.
+ * This is a placeholder implementation that can be enhanced with actual model integration.
  */
-
-import {Platform} from 'react-native';
 
 // Pattern and Trend types
 export type CandlestickPattern = 
@@ -36,11 +34,6 @@ export interface ChartAnalysis {
   fullClassification?: string; // e.g., "hammer_uptrend"
 }
 
-// Placeholder for TensorFlow Lite model
-// In production, you would load the actual model:
-// import { TensorFlowModel } from 'react-native-fast-tflite';
-// const model = await TensorFlowModel.load(require('../../assets/model_unquant.tflite'));
-
 // Labels mapping (should match training labels)
 const LABELS: string[] = [
   'hammer_uptrend', 'hammer_downtrend', 'hammer_sideways',
@@ -59,8 +52,9 @@ const LABELS: string[] = [
  */
 const loadLabels = async (): Promise<string[]> => {
   try {
-    // In production, read from file:
-    // const labelsText = await RNFS.readFileAssets('labels.txt', 'utf8');
+    // In production, fetch from public folder:
+    // const response = await fetch('/labels.txt');
+    // const labelsText = await response.text();
     // return labelsText.split('\n').map(line => line.split(' ')[1]).filter(Boolean);
     
     // For now, return hardcoded labels
@@ -75,9 +69,12 @@ const loadLabels = async (): Promise<string[]> => {
  * Pre-process image for model input
  * Resize to 224x224, normalize, convert to tensor format
  */
-const preprocessImage = async (imageUri: string): Promise<number[]> => {
-  // Placeholder: In production, use react-native-image-resizer or similar
-  // to resize image to 224x224 and convert to tensor format
+const preprocessImage = async (imageUrl: string): Promise<number[]> => {
+  // Placeholder: In production, use TensorFlow.js to:
+  // 1. Load image
+  // 2. Resize to 224x224
+  // 3. Normalize pixel values
+  // 4. Convert to tensor format
   // For now, return dummy data
   return new Array(224 * 224 * 3).fill(0).map(() => Math.random());
 };
@@ -110,7 +107,7 @@ const parseClassification = (classification: string): ChartAnalysis => {
 };
 
 /**
- * Scan image using Edge Sentinel (TensorFlow Lite model)
+ * Scan image using Edge Sentinel (TensorFlow.js model)
  * 
  * Returns analysis including:
  * - Whether it's a financial chart
@@ -118,26 +115,24 @@ const parseClassification = (classification: string): ChartAnalysis => {
  * - Detected trend
  * - Confidence score
  * 
- * @param imagePath - Path to the image file
+ * @param imageUrl - URL or data URL of the image
  * @returns Promise<ChartAnalysis> - Analysis results
  */
-export const scanImage = async (imagePath: string): Promise<ChartAnalysis> => {
+export const scanImage = async (imageUrl: string): Promise<ChartAnalysis> => {
   try {
     // In production, this would:
-    // 1. Load the TFLite model (if not already loaded)
+    // 1. Load the TensorFlow.js model (if not already loaded)
     // 2. Pre-process the image (resize to 224x224, normalize)
     // 3. Run inference
     // 4. Get top prediction from output
     // 5. Parse pattern and trend from label
     
     // Placeholder implementation:
-    // For demo purposes, we'll do a simple file extension check
-    // In production, replace this with actual TFLite inference
+    // For demo purposes, we'll do a simple validation
+    // In production, replace this with actual TensorFlow.js inference
     
-    const imageExtension = imagePath.split('.').pop()?.toLowerCase();
-    const validExtensions = ['jpg', 'jpeg', 'png'];
-    
-    if (!imageExtension || !validExtensions.includes(imageExtension)) {
+    // Check if it's a valid image URL/data URL
+    if (!imageUrl || (!imageUrl.startsWith('data:') && !imageUrl.startsWith('http'))) {
       return {
         isChart: false,
       };
@@ -146,8 +141,8 @@ export const scanImage = async (imagePath: string): Promise<ChartAnalysis> => {
     // Simulate model inference
     // In production:
     // const labels = await loadLabels();
-    // const preprocessed = await preprocessImage(imagePath);
-    // const output = await model.run(preprocessed);
+    // const preprocessed = await preprocessImage(imageUrl);
+    // const output = await model.predict(preprocessed);
     // const topIndex = output.indexOf(Math.max(...output));
     // const classification = labels[topIndex];
     // const confidence = output[topIndex];
@@ -183,63 +178,6 @@ export const scanImage = async (imagePath: string): Promise<ChartAnalysis> => {
     };
   }
 };
-
-/**
- * Enhanced version with actual model loading (for production)
- * Uncomment and implement when you have the TFLite model integrated
- */
-/*
-let model: TensorFlowModel | null = null;
-let labels: string[] = [];
-
-export const initializeEdgeSentinel = async (): Promise<void> => {
-  try {
-    // Load model
-    model = await TensorFlowModel.load(require('../../assets/model_unquant.tflite'));
-    
-    // Load labels
-    labels = await loadLabels();
-    
-    console.log('✅ Edge Sentinel initialized');
-    console.log(`   Model loaded: ${model ? 'Yes' : 'No'}`);
-    console.log(`   Labels: ${labels.length} classes`);
-  } catch (error) {
-    console.error('❌ Failed to load Edge Sentinel model:', error);
-    throw error;
-  }
-};
-
-export const scanImageWithModel = async (imagePath: string): Promise<ChartAnalysis> => {
-  if (!model) {
-    await initializeEdgeSentinel();
-  }
-  
-  try {
-    // Pre-process image
-    const inputTensor = await preprocessImage(imagePath);
-    
-    // Run inference
-    const output = await model!.run(inputTensor);
-    
-    // Get top prediction
-    const maxIndex = output.indexOf(Math.max(...output));
-    const classification = labels[maxIndex];
-    const confidence = output[maxIndex];
-    
-    // Parse classification
-    const analysis = parseClassification(classification);
-    analysis.confidence = confidence;
-    
-    // Return analysis
-    return analysis;
-  } catch (error) {
-    console.error('Edge Sentinel inference error:', error);
-    return {
-      isChart: false,
-    };
-  }
-};
-*/
 
 /**
  * Get human-readable pattern description

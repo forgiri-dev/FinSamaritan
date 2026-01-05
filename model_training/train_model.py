@@ -144,7 +144,7 @@ def create_model(num_classes: int) -> keras.Model:
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=LEARNING_RATE),
         loss='sparse_categorical_crossentropy',
-        metrics=['accuracy', 'top_3_accuracy']
+        metrics=['accuracy', keras.metrics.TopKCategoricalAccuracy(k=3)]
     )
     
     return model
