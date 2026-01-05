@@ -1,4 +1,4 @@
-FinSights/
+FinSamaritan/
 ├── .gitignore               # Ignored files (venv, node_modules, .env)
 ├── README.md                # Documentation & Setup Guide
 ├── LICENSE                  # MIT License
