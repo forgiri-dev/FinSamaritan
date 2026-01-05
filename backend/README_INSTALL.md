@@ -43,7 +43,7 @@ Some packages have dependencies that must be installed first:
 2. **Pydantic** (required by FastAPI)
 3. **FastAPI & Uvicorn** (web framework)
 4. **Pandas** (data processing)
-5. **External APIs** (google-generativeai, yfinance, requests)
+5. **External APIs** (google-genai, yfinance, requests)
 
 The installation scripts handle this automatically.
 
@@ -75,7 +75,7 @@ pip install "fastapi>=0.104.0"
 pip install "uvicorn[standard]>=0.24.0"
 pip install "python-multipart>=0.0.6"
 pip install "pandas>=2.0.0,<3.0.0"
-pip install "google-generativeai>=0.3.0"
+pip install "google-genai>=0.2.0"
 pip install "yfinance>=0.2.28"
 pip install "requests>=2.31.0"
 ```
@@ -85,7 +85,7 @@ pip install "requests>=2.31.0"
 After installation, verify all packages:
 
 ```bash
-python -c "import fastapi; import uvicorn; import pandas; import numpy; import google.generativeai; import yfinance; import requests; print('✅ All packages installed!')"
+python -c "import fastapi; import uvicorn; import pandas; import numpy; import google.genai; import yfinance; import requests; print('✅ All packages installed!')"
 ```
 
 ## Using Virtual Environment (Strongly Recommended)

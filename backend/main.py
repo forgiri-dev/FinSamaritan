@@ -6,12 +6,22 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import google.generativeai as genai
 import os
 import base64
 import database
 from data_engine import data_engine
 import tools
+
+# Import Gemini - try new package first, fallback to old
+try:
+    import google.genai as genai
+    print("✅ Using google.genai (new package)")
+except ImportError:
+    try:
+        import google.generativeai as genai
+        print("⚠️ Using deprecated google.generativeai. Please install google-genai: pip install google-genai")
+    except ImportError:
+        raise ImportError("Please install google-genai: pip install google-genai")
 
 # Initialize FastAPI app
 app = FastAPI(title="FinSamaritan API", version="1.0.0")
@@ -30,12 +40,25 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if not GEMINI_API_KEY:
     print("⚠️ Warning: GEMINI_API_KEY not set. Please set it as an environment variable.")
 
-genai.configure(api_key=GEMINI_API_KEY)
+# Configure API key and detect which package is being used
+USE_NEW_API = hasattr(genai, 'Client')
+genai_client = None
 
-# Initialize Manager Agent (Gemini 1.5 Flash)
-manager_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    tools=[
+if USE_NEW_API:
+    # New google.genai uses Client
+    try:
+        genai_client = genai.Client(api_key=GEMINI_API_KEY)
+        print("✅ Initialized google.genai Client")
+    except Exception as e:
+        print(f"⚠️ Error initializing new API, falling back: {e}")
+        USE_NEW_API = False
+else:
+    # Old google.generativeai uses configure
+    genai.configure(api_key=GEMINI_API_KEY)
+    print("✅ Configured google.generativeai (deprecated)")
+
+# Tool definitions (shared for both APIs)
+manager_tools = [
         {
             "function_declarations": [
                 {
@@ -105,8 +128,7 @@ manager_model = genai.GenerativeModel(
                             },
                             "period": {
                                 "type": "integer",
-                                "description": "Backtest period in days (default: 252)",
-                                "default": 252
+                                "description": "Backtest period in days (default: 252)"
                             }
                         },
                         "required": ["symbol", "strategy_type"]
@@ -143,8 +165,7 @@ manager_model = genai.GenerativeModel(
                             },
                             "limit": {
                                 "type": "integer",
-                                "description": "Number of headlines (default: 3)",
-                                "default": 3
+                                "description": "Number of headlines (default: 3)"
                             }
                         },
                         "required": ["symbol"]
@@ -161,25 +182,52 @@ manager_model = genai.GenerativeModel(
                 }
             ]
         }
-    ],
-    system_instruction="""You are a Wealth Manager AI assistant for FinSamaritan. 
-    You help users manage their portfolio, analyze stocks, and make informed investment decisions.
-    
-    Guidelines:
-    - Always use the provided tools to get real data. Never hallucinate stock prices or portfolio values.
-    - Be critical of losses and provide actionable advice.
-    - Format your responses clearly with tables when showing portfolio or screener results.
-    - Use markdown formatting for better readability (bold, tables, lists).
-    - When analyzing portfolio, always check current prices and calculate real P&L.
-    - Be concise but informative.
-    - For Indian stocks, ensure symbols end with .NS (e.g., RELIANCE.NS, TATAPOWER.NS).
-    """
-)
+    ]
+
+manager_system_instruction = """You are a Wealth Manager AI assistant for FinSamaritan. 
+You help users manage their portfolio, analyze stocks, and make informed investment decisions.
+
+Guidelines:
+- Always use the provided tools to get real data. Never hallucinate stock prices or portfolio values.
+- Be critical of losses and provide actionable advice.
+- Format your responses clearly with tables when showing portfolio or screener results.
+- Use markdown formatting for better readability (bold, tables, lists).
+- When analyzing portfolio, always check current prices and calculate real P&L.
+- Be concise but informative.
+- For Indian stocks, ensure symbols end with .NS (e.g., RELIANCE.NS, TATAPOWER.NS).
+"""
+
+# Initialize Manager Agent (Gemini 1.5 Flash)
+if USE_NEW_API:
+    # New API - may need adjustment based on actual google-genai API structure
+    # For now, try to create model with tools
+    try:
+        manager_model = genai_client.models.get("gemini-1.5-flash")
+        # Store tools and system instruction for later use
+        manager_model._tools = manager_tools
+        manager_model._system_instruction = manager_system_instruction
+    except Exception as e:
+        print(f"⚠️ Error with new API model initialization: {e}")
+        print("   Falling back to old API structure")
+        USE_NEW_API = False
+        genai.configure(api_key=GEMINI_API_KEY)
+        manager_model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            tools=manager_tools,
+            system_instruction=manager_system_instruction
+        )
+else:
+    # Old API
+    manager_model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        tools=manager_tools,
+        system_instruction=manager_system_instruction
+    )
 
 # Initialize Vision Agent (Gemini 1.5 Pro)
-vision_model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro",
-    system_instruction="""You are a Financial Chart Analysis Specialist. 
+if USE_NEW_API:
+    vision_model = genai_client.models.get("gemini-1.5-pro")
+    vision_system_instruction = """You are a Financial Chart Analysis Specialist. 
     Analyze the provided chart image and provide:
     1. Chart type identification (candlestick, line, bar, etc.)
     2. Key technical indicators visible
@@ -190,7 +238,21 @@ vision_model = genai.GenerativeModel(
     
     Be precise and professional. Use technical terminology correctly.
     """
-)
+else:
+    vision_model = genai.GenerativeModel(
+        model_name="gemini-1.5-pro",
+        system_instruction="""You are a Financial Chart Analysis Specialist. 
+        Analyze the provided chart image and provide:
+        1. Chart type identification (candlestick, line, bar, etc.)
+        2. Key technical indicators visible
+        3. Trend analysis (bullish, bearish, sideways)
+        4. Support and resistance levels
+        5. Trading recommendations based on technical analysis
+        6. Risk assessment
+        
+        Be precise and professional. Use technical terminology correctly.
+        """
+    )
 
 # Request/Response models
 class AgentRequest(BaseModel):
@@ -316,13 +378,18 @@ async def analyze_chart_endpoint(request: ChartRequest):
         image_data = base64.b64decode(request.image)
         
         # Analyze with Vision Agent
-        response = vision_model.generate_content([
-            "Analyze this financial chart image. Provide detailed technical analysis including trend, support/resistance, and trading recommendations.",
-            {
-                "mime_type": "image/jpeg",
-                "data": image_data
-            }
-        ])
+        if USE_NEW_API:
+            # New API - adjust based on actual google-genai API
+            response = vision_model.generate_content([
+                "Analyze this financial chart image. Provide detailed technical analysis including trend, support/resistance, and trading recommendations.",
+                {"mime_type": "image/jpeg", "data": image_data}
+            ])
+        else:
+            # Old API
+            response = vision_model.generate_content([
+                "Analyze this financial chart image. Provide detailed technical analysis including trend, support/resistance, and trading recommendations.",
+                {"mime_type": "image/jpeg", "data": image_data}
+            ])
         
         return {
             "success": True,

@@ -96,7 +96,7 @@ pip install "python-multipart>=0.0.6"
 pip install "pandas>=2.0.0,<3.0.0"
 
 # 5. External APIs
-pip install "google-generativeai>=0.3.0"
+pip install "google-genai>=0.2.0"
 pip install "yfinance>=0.2.28"
 pip install "requests>=2.31.0"
 ```
@@ -132,7 +132,7 @@ pip install -r requirements-fixed.txt
 After installation, verify all packages:
 
 ```bash
-python -c "import fastapi; import uvicorn; import pandas; import numpy; import google.generativeai; import yfinance; import requests; print('✅ All packages installed!')"
+python -c "import fastapi; import uvicorn; import pandas; import numpy; import google.genai; import yfinance; import requests; print('✅ All packages installed!')"
 ```
 
 ## Still Having Issues?
@@ -141,7 +141,7 @@ python -c "import fastapi; import uvicorn; import pandas; import numpy; import g
 2. Check pip version: `pip --version` (should be 23.0+)
 3. Try installing without version constraints:
    ```bash
-   pip install fastapi uvicorn pandas numpy google-generativeai yfinance requests python-multipart
+   pip install fastapi uvicorn pandas numpy google-genai yfinance requests python-multipart
    ```
 4. Check for conflicting packages: `pip check`
 

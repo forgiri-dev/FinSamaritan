@@ -31,7 +31,7 @@ if ! python3 -c "import fastapi" 2>/dev/null; then
         python3 -m pip install "numpy>=1.24.0,<2.0.0" "pydantic>=2.5.0,<3.0.0"
         python3 -m pip install "fastapi>=0.104.0" "uvicorn[standard]>=0.24.0" "python-multipart>=0.0.6"
         python3 -m pip install "pandas>=2.0.0,<3.0.0"
-        python3 -m pip install "google-generativeai>=0.3.0" "yfinance>=0.2.28" "requests>=2.31.0"
+        python3 -m pip install "google-genai>=0.2.0" "yfinance>=0.2.28" "requests>=2.31.0"
     fi
 fi
 

@@ -30,7 +30,7 @@ python -m pip install "pandas>=2.0.0,<3.0.0"
 
 echo.
 echo Step 5: Installing external APIs...
-python -m pip install "google-generativeai>=0.3.0" "yfinance>=0.2.28" "requests>=2.31.0"
+python -m pip install "google-genai>=0.2.0" "yfinance>=0.2.28" "requests>=2.31.0"
 
 echo.
 echo ========================================
@@ -38,7 +38,7 @@ echo Installation Complete!
 echo ========================================
 echo.
 echo Verifying installation...
-python -c "import fastapi; import uvicorn; import pandas; import numpy; import google.generativeai; import yfinance; import requests; print('All packages installed successfully!')"
+python -c "import fastapi; import uvicorn; import pandas; import numpy; import google.genai; import yfinance; import requests; print('All packages installed successfully!')"
 
 if errorlevel 1 (
     echo.
