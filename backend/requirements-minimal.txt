@@ -5,9 +5,11 @@ fastapi
 uvicorn[standard]
 python-multipart
 pydantic
+google-generativeai
 google-genai
 yfinance
 pandas
 numpy
 requests
+python-dotenv
 

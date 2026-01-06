@@ -1,23 +1,25 @@
-# Core web framework
-fastapi>=0.104.0,<0.110.0
-uvicorn[standard]>=0.24.0,<0.30.0
-python-multipart>=0.0.6
+# Core web framework (tested together)
+fastapi==0.110.2
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
 
-# Data validation (compatible with FastAPI)
-pydantic>=2.5.0,<3.0.0
+# Data validation
+pydantic==2.7.4
 
-# AI/ML libraries (using new google-genai package)
-google-genai>=0.2.0
+# AI libraries (prefer stable google-generativeai API)
+google-generativeai==0.8.3
+# Keep google-genai for forward compatibility, but code defaults to generativeai
+google-genai==0.3.0
 
-# Data processing (install in order to avoid conflicts)
-numpy>=1.24.0,<2.0.0
-pandas>=2.0.0,<3.0.0
+# Data processing (Python 3.13 compatible, no TensorFlow dependency here)
+numpy>=2.1.0,<3.0.0
+pandas>=2.2.0,<3.0.0
 
 # Financial data
-yfinance>=0.2.28
+yfinance==0.2.40
 
 # HTTP requests
-requests>=2.31.0
+requests==2.32.3
 
 # Environment variables
-python-dotenv>=1.0.0
+python-dotenv==1.0.1

@@ -1,6 +1,9 @@
-# FinSamaritan: Complete Setup & Testing Guide
+## FinSamaritan: Complete Setup & Testing Guide
 
-This comprehensive guide will walk you through setting up and testing the entire FinSamaritan application, including the backend, frontend, and Edge Sentinel model.
+This comprehensive guide will walk you through setting up and testing the entire FinSamaritan application, including:
+- **Backend API** (FastAPI + Gemini integration)
+- **Frontend web app** (Vite/React)
+- **Model training pipeline** (Edge Sentinel: data generation + TensorFlow training)
 
 ---
 
@@ -19,10 +22,21 @@ This comprehensive guide will walk you through setting up and testing the entire
 
 ### Required Software
 
-1. **Python 3.8+**
+1. **Python 3.11 (64‑bit, recommended)**
+
+   The project is tested with Python 3.11, and some ML libraries do **not** yet have stable support for 3.13.
+
    ```bash
-   python --version  # Should be 3.8 or higher
+   python --version
    ```
+
+   On Windows, you can list all installed versions:
+
+   ```powershell
+   py -0p
+   ```
+
+   Ensure you have a 64‑bit Python 3.11 install (path typically under `Python311`).
 
 2. **Node.js 18+**
    ```bash
@@ -41,44 +55,76 @@ This comprehensive guide will walk you through setting up and testing the entire
 
 1. **Google Gemini API Key**
    - Get it from: https://makersuite.google.com/app/apikey
-   - Save it securely - you'll need it for the backend
+   - Save it securely – you'll need it for the backend
 
 ---
 
-## 🚀 Backend Setup
+## 🧱 Project Structure Overview
 
-### Step 1: Navigate to Backend Directory
+At the repo root:
 
-```bash
-cd backend
+- `backend/` – FastAPI server, Gemini tools, SQLite DB
+- `frontend/` – Vite/React web client
+- `model_training/` – Edge Sentinel data generation + TensorFlow training pipeline
+- `SETUP_AND_TESTING_GUIDE.md` – this guide
+
+---
+
+## 🚀 Backend Setup (FastAPI + Gemini)
+
+The backend is designed to run cleanly on **Python 3.11+** with pinned, compatible dependencies.
+
+### Step 1: Create and Activate a Virtual Environment
+
+Always create the venv in the **project root**, then work inside `backend/`.
+
+**Windows (PowerShell, Python 3.11):**
+
+```powershell
+cd "C:\Users\Zaid Iqbal\FinSamaritan"
+
+# Create venv with Python 3.11 explicitly (adjust path if different)
+& "C:\Users\Zaid Iqbal\AppData\Local\Programs\Python\Python311\python.exe" -m venv .venv
+
+# Allow script execution for this session only
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# Activate venv
+.\.venv\Scripts\Activate.ps1
+
+python --version  # Should now show Python 3.11.x
 ```
 
-### Step 2: Create Virtual Environment (Recommended)
+**Windows (CMD alternative):**
 
-**Windows:**
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
+```cmd
+cd C:\Users\Zaid Iqbal\FinSamaritan
+python -m venv .venv
+.\.venv\Scripts\activate.bat
 ```
 
 **Linux/Mac:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+cd /path/to/FinSamaritan
+python3 -m venv .venv
+source .venv/bin/activate
+python --version  # Should be 3.11+
 ```
 
-**Expected output:**
-```
-Successfully installed fastapi-0.104.1 uvicorn-0.24.0 ...
+### Step 2: Install Backend Dependencies
+
+From the **project root** with the venv active:
+
+```bash
+cd backend
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
 ```
 
-### Step 4: Set Environment Variable
+Backend requirements are pinned to versions compatible with Python 3.11+ and Gemini (`fastapi`, `pydantic`, `google-generativeai`, `numpy`, `pandas`, etc.).
+
+### Step 3: Set GEMINI_API_KEY Environment Variable
 
 **Windows PowerShell:**
 ```powershell
@@ -101,27 +147,21 @@ echo 'export GEMINI_API_KEY="your-gemini-api-key-here"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### Step 5: Generate Backup Stock Data (Optional)
+### Step 4: (Optional) Generate Backup Stock Data
 
 ```bash
+cd backend
 python stock_generator.py
 ```
 
 This will:
 - Fetch Top 50 Nifty stocks
 - Save to `stock_data.csv`
-- Take ~2-3 minutes
+- Take ~2–3 minutes
 
-**Expected output:**
-```
-🔄 Generating stock data backup...
-✅ Fetched RELIANCE.NS
-✅ Fetched TCS.NS
-...
-✅ Generated stock_data.csv with 50 stocks
-```
+### Step 5: Start the Backend Server
 
-### Step 6: Start the Backend Server
+From `backend/` with the venv active:
 
 ```bash
 uvicorn main:app --reload
@@ -143,7 +183,7 @@ INFO:     Application startup complete.
 
 **Server is now running on:** `http://localhost:8000`
 
-### Step 7: Verify Backend is Running
+### Step 6: Verify Backend is Running
 
 Open a new terminal and test:
 
@@ -164,7 +204,7 @@ Or visit in browser: `http://localhost:8000/docs` (FastAPI Swagger UI)
 
 ---
 
-## 🌐 Frontend Setup
+## 🌐 Frontend Setup (Vite/React)
 
 ### Step 1: Navigate to Frontend Directory
 
@@ -172,23 +212,22 @@ Or visit in browser: `http://localhost:8000/docs` (FastAPI Swagger UI)
 cd frontend
 ```
 
+You can run the frontend either from the same venv session (Python is irrelevant here) or from a normal shell.
+
 ### Step 2: Install Dependencies
 
 ```bash
 npm install
 ```
 
-**Expected output:**
-```
-added 200+ packages in 20s
-```
-
 ### Step 3: Configure API Endpoint (if needed)
 
-Edit `frontend/src/api/agent.ts` if your backend is not on `localhost:8000`:
+The frontend calls the backend via an API URL:
 
-- **Default:** `http://localhost:8000`
-- **Custom Backend:** Set `VITE_API_URL` environment variable or edit the file directly
+- Default backend URL: `http://localhost:8000`
+- If you change backend port/host, update either:
+  - `frontend/src/api/agent.ts`, or
+  - Set `VITE_API_URL` in a `.env` file for Vite.
 
 ### Step 4: Start Development Server
 
@@ -216,25 +255,102 @@ The app should load in your browser.
 
 ---
 
-## 🤖 Model Verification
+## 🤖 Model Training & Verification (Edge Sentinel)
 
-### Step 1: Verify Model Integration
+The `model_training/` folder contains everything needed to **generate training data** and **train the Edge Sentinel CNN** that ultimately produces the `model_unquant.tflite` and `labels.txt` used on the frontend.
 
-The Edge Sentinel service is implemented in `frontend/src/services/EdgeSentinel.ts`.
+### 1. Model Training Environment Setup
 
-**Current Status:**
-- ✅ Service structure is ready
-- ✅ Placeholder implementation for testing
-- ⚠️ Full TensorFlow.js integration requires model conversion (optional for basic testing)
+Model training requires TensorFlow and scientific Python packages. These are pinned in `model_training/requirements.txt` to versions that work well together on Python 3.11.
 
-**For Production TensorFlow.js Integration:**
-1. Convert TensorFlow Lite model to TensorFlow.js format
-2. Load the model in `EdgeSentinel.ts`
-3. Implement proper image preprocessing
+You can either:
+- **Reuse the same `.venv`** as the backend (recommended), or
+- Create a **separate venv** if you want to isolate heavy ML deps.
 
-**For Testing:**
-- The placeholder implementation will work for basic functionality testing
-- It simulates chart detection with random patterns
+**Reuse same venv (from project root):**
+
+```bash
+cd model_training
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+```
+
+This installs:
+- `tensorflow`
+- `numpy`, `pandas`, `matplotlib`, `pillow`
+- `scikit-learn`
+- `yfinance`, `mplfinance`, `opencv-python`
+
+### 2. Generate Training Data (optional if you already have `training_data/`)
+
+The data generator script creates candlestick chart images for different pattern + trend combinations.
+
+From `model_training/`:
+
+```bash
+python data_generator.py
+```
+
+This will:
+- Create a `training_data/` directory
+- For each pattern in `PATTERNS` and trend in `TRENDS`, generate images into class folders like `hammer_uptrend`, `doji_sideways`, etc.
+- Create a `labels.txt` mapping class indices to names.
+
+You can control sample size by editing `samples_per_class` in the `__main__` block of `data_generator.py`.
+
+### 3. Train the Edge Sentinel Model
+
+From `model_training/`:
+
+```bash
+python train_model.py --data-dir training_data --output-dir models
+```
+
+What this does:
+- Loads and splits the dataset into train/val/test
+- Builds a CNN defined in `train_model.py`
+- Trains with data augmentation and callbacks (checkpointing, early stopping, LR reduction)
+- Saves:
+  - `models/best_model.keras`
+  - `models/edge_sentinel_model.keras`
+  - `models/model_unquant.tflite`  ✅ (used by the mobile/web client)
+  - `models/labels.txt`
+  - `models/training_history.json`
+  - `models/model_info.json`
+
+Training can take several minutes depending on your hardware and dataset size.
+
+### 4. Test the Trained Model
+
+From `model_training/`:
+
+```bash
+python test_model.py --model models/model_unquant.tflite --labels models/labels.txt --test-dir training_data
+```
+
+You can also test a single image:
+
+```bash
+python test_model.py --model models/model_unquant.tflite --labels models/labels.txt --image path/to/chart.jpg
+```
+
+The script prints:
+- Top‑k predictions for single images
+- Approximate accuracy over a sample of images in the test directory.
+
+### 5. Connecting Model Outputs to the App
+
+- The **React Native / web client** expects:
+  - `model_unquant.tflite`
+  - `labels.txt`
+- In this repo, the frontend’s `assets/` folder already contains:
+  - `frontend/assets/model_unquant.tflite`
+  - `frontend/assets/labels.txt`
+- To update the model used by the app:
+  1. Train a new model as above.
+  2. Copy the new `model_unquant.tflite` and `labels.txt` from `model_training/models/` into `frontend/assets/`.
+
+The current web frontend uses a **placeholder Edge Sentinel service** (`frontend/src/services/EdgeSentinel.ts`) to simulate chart detection; for full on-device inference you would integrate TensorFlow.js and load the converted model.
 
 ---
 
