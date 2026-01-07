@@ -1,17 +1,13 @@
-# Bytecode
-__pycache__/
-*.py[cod]
-
-# Virtual environments
+/.venv/
 venv/
-env/
+*.pyc
+__pycache__/
 .env
-
-# Large model files
-model_training/models/best_model.keras
-model_training/models/model.keras
-
-# Common packaging/build
-*.egg-info/
-dist/
-build/
+.vscode/
+*.db
+*.sqlite3
+node_modules/
+frontend/dist/
+frontend/node_modules/
+*.log
+.DS_Store
