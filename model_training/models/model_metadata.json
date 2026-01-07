@@ -1,0 +1,33 @@
+{
+  "num_classes": 24,
+  "classes": [
+    "doji_downtrend",
+    "doji_sideways",
+    "doji_uptrend",
+    "engulfing_bearish_downtrend",
+    "engulfing_bearish_sideways",
+    "engulfing_bearish_uptrend",
+    "engulfing_bullish_downtrend",
+    "engulfing_bullish_sideways",
+    "engulfing_bullish_uptrend",
+    "evening_star_downtrend",
+    "evening_star_sideways",
+    "evening_star_uptrend",
+    "hammer_downtrend",
+    "hammer_sideways",
+    "hammer_uptrend",
+    "morning_star_downtrend",
+    "morning_star_sideways",
+    "morning_star_uptrend",
+    "normal_downtrend",
+    "normal_sideways",
+    "normal_uptrend",
+    "shooting_star_downtrend",
+    "shooting_star_sideways",
+    "shooting_star_uptrend"
+  ],
+  "img_size": 224,
+  "train_accuracy": 0.23489584028720856,
+  "test_accuracy": 0.1979166716337204,
+  "model_type": "Keras Sequential CNN"
+}

@@ -29,6 +29,13 @@ export interface ChartResponse {
   analysis: string;
 }
 
+export interface InferenceResponse {
+  success: boolean;
+  label: string;
+  confidence: number;
+  top3: { label: string; confidence: number }[];
+}
+
 /**
  * Send a text message to the agent endpoint
  */
@@ -60,6 +67,24 @@ export const analyzeChart = async (imageBase64: string): Promise<string> => {
       ? imageBase64.split(',')[1] 
       : imageBase64;
     
+    // Prefer server-side TFLite inference; fallback to Gemini vision if needed
+    try {
+      const inf = await api.post<InferenceResponse>('/inference/chart', {
+        image: base64Data,
+      });
+      if (inf.data.success) {
+        const { label, confidence, top3 } = inf.data;
+        const percent = (confidence * 100).toFixed(1);
+        const breakdown = top3
+          .map((t) => `- ${t.label}: ${(t.confidence * 100).toFixed(1)}%`)
+          .join('\n');
+        return `Edge Sentinel (server):\n\nTop label: **${label}** (${percent}% confidence)\n\nTop 3:\n${breakdown}`;
+      }
+    } catch (e) {
+      // If inference endpoint fails, fall back to Gemini vision
+      console.warn('Inference endpoint failed, falling back to /analyze-chart', e);
+    }
+
     const response = await api.post<ChartResponse>('/analyze-chart', {
       image: base64Data,
     });

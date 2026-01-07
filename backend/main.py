@@ -5,10 +5,21 @@ The unified brain that routes user intent to specialized tools via Gemini
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict
 import os
 import base64
+import io
+import numpy as np
+from PIL import Image
 from dotenv import load_dotenv
+
+# Use TensorFlow's built-in TFLite interpreter (works on Windows via tensorflow package)
+try:
+    from tensorflow.lite import Interpreter
+except Exception:  # pragma: no cover
+    # Fallback if module path differs
+    from tensorflow import lite as _lite  # type: ignore
+    Interpreter = _lite.Interpreter  # type: ignore
 import database
 from data_engine import data_engine
 import tools
@@ -221,9 +232,14 @@ Guidelines:
 """
 
 # Initialize Manager Agent
-# Use standard gemini-pro model (most widely available)
+# Use generally available Gemini models (newer first, then legacy)
 manager_model = None
-model_names_to_try = ["gemini-pro"]
+model_names_to_try = [
+    "models/gemini-1.5-flash-001",
+    "models/gemini-1.5-pro-001",
+    "models/gemini-1.0-pro-001",
+    "models/gemini-pro",
+]
 
 # Force use of old API (google.generativeai) which is more stable
 if USE_NEW_API:
@@ -271,7 +287,12 @@ Be precise and professional. Use technical terminology correctly.
 # Initialize Vision Agent
 # Use standard model names - gemini-pro can handle both text and vision
 vision_model = None
-vision_model_names_to_try = ["gemini-pro-vision", "gemini-pro"]
+vision_model_names_to_try = [
+    "models/gemini-1.5-flash-001",
+    "models/gemini-1.5-pro-vision-001",
+    "models/gemini-pro-vision",
+    "models/gemini-pro",
+]
 
 # Initialize vision model using old API (more stable)
 for model_name in vision_model_names_to_try:
@@ -292,11 +313,115 @@ if vision_model is None:
     print("Please check your API key and ensure you have access to at least one of these models.")
     raise RuntimeError("Failed to initialize any Gemini vision model. Please check your API key and model availability.")
 
+# --- Edge Sentinel (server-side inference) ---
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.abspath(os.path.join(BACKEND_DIR, "..", "model_training", "models"))
+TFLITE_MODEL_PATH = os.path.join(MODEL_DIR, "model_unquant.tflite")
+LABELS_PATH = os.path.join(MODEL_DIR, "labels.txt")
+
+if not os.path.exists(TFLITE_MODEL_PATH):
+    print(f"⚠️ TFLite model not found at {TFLITE_MODEL_PATH}. Server-side inference will be disabled.")
+
+_tflite_interpreter: Optional[Interpreter] = None
+_labels: List[str] = []
+
+
+def load_labels() -> List[str]:
+    global _labels
+    if _labels:
+        return _labels
+    try:
+        with open(LABELS_PATH, "r", encoding="utf-8") as f:
+            lines = [ln.strip() for ln in f.readlines() if ln.strip()]
+        parsed = []
+        for line in lines:
+            if " " in line:
+                _, label = line.split(" ", 1)
+                parsed.append(label.strip())
+            else:
+                parsed.append(line)
+        _labels = parsed
+        print(f"✅ Loaded {len(_labels)} labels for Edge Sentinel")
+    except Exception as e:
+        print(f"⚠️ Could not load labels: {e}")
+        _labels = []
+    return _labels
+
+
+def get_interpreter() -> Optional[Interpreter]:
+    global _tflite_interpreter
+    if _tflite_interpreter is not None:
+        return _tflite_interpreter
+    if not os.path.exists(TFLITE_MODEL_PATH):
+        return None
+    try:
+        _tflite_interpreter = Interpreter(model_path=TFLITE_MODEL_PATH)
+        _tflite_interpreter.allocate_tensors()
+        print("✅ TFLite interpreter initialized")
+    except Exception as e:
+        print(f"❌ Failed to initialize TFLite interpreter: {e}")
+        _tflite_interpreter = None
+    return _tflite_interpreter
+
+
+def preprocess_image(base64_image: str) -> Optional[np.ndarray]:
+    try:
+        if "," in base64_image:
+            base64_image = base64_image.split(",", 1)[1]
+        image_data = base64.b64decode(base64_image)
+        img = Image.open(io.BytesIO(image_data)).convert("RGB")
+        img = img.resize((224, 224))
+        arr = np.asarray(img, dtype=np.float32) / 255.0
+        arr = np.expand_dims(arr, axis=0)  # [1, 224, 224, 3]
+        return arr
+    except Exception as e:
+        print(f"❌ Preprocess error: {e}")
+        return None
+
+
+def run_inference(image_array: np.ndarray) -> Dict:
+    interpreter = get_interpreter()
+    if interpreter is None:
+        raise RuntimeError("TFLite interpreter not available")
+
+    input_details = interpreter.get_input_details()[0]
+    output_details = interpreter.get_output_details()[0]
+
+    interpreter.set_tensor(input_details["index"], image_array)
+    interpreter.invoke()
+    output = interpreter.get_tensor(output_details["index"])[0]  # [num_classes]
+
+    labels = load_labels()
+    if not labels:
+        labels = [f"class_{i}" for i in range(len(output))]
+
+    exp = np.exp(output - np.max(output))
+    probs = exp / np.sum(exp)
+
+    top_idx = int(np.argmax(probs))
+    top_prob = float(probs[top_idx])
+
+    top3_indices = np.argsort(probs)[::-1][:3]
+    top3 = [
+        {"label": labels[i] if i < len(labels) else f"class_{i}", "confidence": float(probs[i])}
+        for i in top3_indices
+    ]
+
+    return {
+        "label": labels[top_idx] if top_idx < len(labels) else f"class_{top_idx}",
+        "confidence": top_prob,
+        "top3": top3,
+    }
+
 # Request/Response models
 class AgentRequest(BaseModel):
     text: str
 
 class ChartRequest(BaseModel):
+    image: str  # Base64 encoded image
+
+
+class InferenceRequest(BaseModel):
     image: str  # Base64 encoded image
 
 # Startup event
@@ -305,7 +430,14 @@ async def startup_event():
     """Initialize database and data cache on startup"""
     print("🚀 Starting FinSamaritan Backend...")
     database.init_db()
-    data_engine.initialize_cache()
+    # Skip prefetching Nifty-50 to avoid rate limits (yfinance 429)
+    # Cache will populate lazily on-demand.
+    # To re-enable prefetch, set PREFETCH_TOP50=1 in the environment.
+    prefetch = os.getenv("PREFETCH_TOP50", "0")
+    if prefetch == "1":
+        data_engine.initialize_cache()
+    else:
+        print("ℹ️ Prefetch disabled (PREFETCH_TOP50!=1). Cache will fill lazily.")
     print("✅ Backend ready!")
 
 @app.get("/")
@@ -429,6 +561,25 @@ async def analyze_chart_endpoint(request: ChartRequest):
     
     except Exception as e:
         print(f"Error in chart analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/inference/chart")
+async def inference_chart(request: InferenceRequest):
+    """
+    Server-side Edge Sentinel inference using TFLite.
+    """
+    try:
+        img_array = preprocess_image(request.image)
+        if img_array is None:
+            raise HTTPException(status_code=400, detail="Invalid image data")
+
+        result = run_inference(img_array)
+        return {"success": True, **result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in inference: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

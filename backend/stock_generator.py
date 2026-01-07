@@ -27,16 +27,17 @@ def generate_stock_data():
     
     stock_data = []
     failed = []
+    consecutive_failures = 0
     
     for symbol in NIFTY_50_SYMBOLS:
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
-            
+
             # Get current price
             hist = ticker.history(period="1d", interval="1m")
             current_price = hist['Close'].iloc[-1] if not hist.empty else info.get('currentPrice', 0)
-            
+
             stock_data.append({
                 "symbol": symbol,
                 "name": info.get("longName", symbol),
@@ -56,14 +57,46 @@ def generate_stock_data():
                 "exchange": info.get("exchange", "NSE"),
                 "fetched_at": datetime.now().isoformat()
             })
-            
+
             print(f"✅ Fetched {symbol}")
+            consecutive_failures = 0
             time.sleep(0.2)  # Rate limiting
-            
+
         except Exception as e:
             print(f"❌ Failed {symbol}: {e}")
             failed.append(symbol)
+            consecutive_failures += 1
+
+            # If we keep hitting 429 / network errors, stop hammering the API
+            if consecutive_failures >= 5:
+                print("\n⚠️ Multiple consecutive fetch failures detected (likely rate limiting).")
+                print("   Stopping live fetch attempts and falling back to synthetic backup data.\n")
+                break
     
+    # If we couldn't fetch anything, fall back to a synthetic/static dataset
+    if not stock_data:
+        print("⚠️ No live data fetched. Creating synthetic backup rows instead.")
+        for symbol in NIFTY_50_SYMBOLS:
+            stock_data.append({
+                "symbol": symbol,
+                "name": symbol,
+                "current_price": 0.0,
+                "previous_close": 0.0,
+                "market_cap": 0,
+                "pe_ratio": None,
+                "dividend_yield": None,
+                "52_week_high": 0.0,
+                "52_week_low": 0.0,
+                "volume": 0,
+                "avg_volume": 0,
+                "beta": None,
+                "sector": "Unknown",
+                "industry": "Unknown",
+                "currency": "INR",
+                "exchange": "NSE",
+                "fetched_at": datetime.now().isoformat()
+            })
+
     # Save to CSV
     df = pd.DataFrame(stock_data)
     df.to_csv("stock_data.csv", index=False)

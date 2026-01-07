@@ -15,6 +15,10 @@ google-genai==0.3.0
 numpy>=2.1.0,<3.0.0
 pandas>=2.2.0,<3.0.0
 
+# Inference runtime + image handling (use TensorFlow CPU on Windows)
+tensorflow==2.15.0
+Pillow==10.3.0
+
 # Financial data
 yfinance==0.2.40
 

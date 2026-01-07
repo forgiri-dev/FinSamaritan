@@ -9,12 +9,171 @@ This comprehensive guide will walk you through setting up and testing the entire
 
 ## 📋 Table of Contents
 
-1. [Prerequisites](#prerequisites)
-2. [Backend Setup](#backend-setup)
-3. [Frontend Setup](#frontend-setup)
-4. [Model Verification](#model-verification)
-5. [Testing Guide](#testing-guide)
-6. [Troubleshooting](#troubleshooting)
+0. [End-to-End Setup (Windows, Recommended)](#-end-to-end-setup-windows-recommended)
+1. [Prerequisites](#-prerequisites)
+2. [Backend Setup](#-backend-setup-fastapi--gemini)
+3. [Frontend Setup](#-frontend-setup-vitereact)
+4. [Model Training & Verification](#-model-training--verification-edge-sentinel)
+   - [Quick Start: Simple Training (Recommended)](#-quick-start-simple-training-recommended)
+   - [Advanced: Full TensorFlow Training (Alternative)](#-advanced-full-tensorflow-training-alternative)
+5. [Testing Guide](#-testing-guide)
+6. [Troubleshooting](#-troubleshooting)
+7. [Verification Checklist](#-verification-checklist)
+8. [Performance Benchmarks](#-performance-benchmarks)
+9. [Next Steps](#-next-steps)
+10. [Support](#-support)
+
+## 🧭 End-to-End Setup (Windows, Recommended)
+
+This section gives you a **“do these in order”** flow for a fresh Windows machine using PowerShell.
+After completing these steps, your **backend, frontend, and model training** environments will all be ready.
+
+### Step 0: Open PowerShell in the Project Root
+
+```powershell
+cd "C:\Users\<YourUser>\FinSamaritan"
+```
+
+Replace `<YourUser>` with your Windows username.
+
+### Step 1: Create and Activate the Python Virtual Environment
+
+```powershell
+# Create venv with Python 3.11
+py -3.11 -m venv .venv
+
+# Allow script execution for this session only
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# Activate venv
+.\.venv\Scripts\Activate.ps1
+
+python --version  # should show 3.11.x
+```
+
+Keep this terminal open and activated whenever you work on the backend or model training.
+
+### Step 2: Install Backend Dependencies
+
+From the same activated venv:
+
+```powershell
+cd backend
+
+# Recommended: use the pinned requirements file
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+```
+
+> You can also use the helper script on Windows:
+> ```powershell
+> .\install_requirements.bat
+> ```
+
+### Step 3: Configure GEMINI_API_KEY
+
+Still in the same PowerShell session:
+
+```powershell
+$env:GEMINI_API_KEY = "your-gemini-api-key-here"
+```
+
+To confirm:
+
+```powershell
+$env:GEMINI_API_KEY
+```
+
+### Step 4: (Optional) Pre-generate Stock Cache Data
+
+```powershell
+cd backend
+python stock_generator.py
+```
+
+This creates or refreshes `stock_data.csv` with Top 50 Nifty stocks used by the backend.
+
+### Step 5: Start the Backend Server
+
+From `backend/` in the activated venv:
+
+```powershell
+# Option A: use uvicorn directly
+uvicorn main:app --reload
+
+# Option B: use helper script
+.\start_backend.bat
+```
+
+Leave this terminal running. The API will be available at `http://localhost:8000`.
+
+### Step 6: Start the Frontend (New PowerShell Window)
+
+Open a **new** PowerShell window (frontend does not need the Python venv):
+
+```powershell
+cd "C:\Users\<YourUser>\FinSamaritan\frontend"
+
+# Install Node dependencies (first time only)
+
+
+# Start Vite dev server
+npm run dev
+```
+
+Once it starts, open `http://localhost:3000` in your browser.
+
+### Step 7: (Optional but Recommended) Train / Re-train the Model
+
+Back in your **first** PowerShell window where the Python venv is activated:
+
+```powershell
+cd "C:\Users\<YourUser>\FinSamaritan\model_training"
+
+# Install ML dependencies (one-time)
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+
+# If you don't already have training data:
+python data_generator.py
+
+# Simple Keras-based training (recommended)
+python train_simple.py --data-dir training_data --output-dir models
+
+# Convert to TFLite
+python convert_to_tflite.py --model-path models/model.keras --output-path models/model_unquant.tflite
+```
+
+> On Windows you can also use the convenience script:
+> ```powershell
+> .\train.bat
+> ```
+
+### Step 8: Run the Tests
+
+With backend and frontend both running:
+
+- **Backend tests:** follow the commands in the [Testing Guide](#-testing-guide) (health check, agent queries, chart analysis).
+- **Frontend tests:** follow the manual tests in the [Frontend Testing](#frontend-testing) section.
+- **Model tests:** optionally run `test_model.py` from `model_training/` or use the sample inference snippets in the Model Training section.
+
+When all these pass, your FinSamaritan environment is fully set up end-to-end.
+
+## ⚡ Quick Model Training Summary
+
+**Recommended Approach (Simple & Error-Free):**
+1. Install dependencies: `pip install -r requirements.txt`
+2. Train model: `python train_simple.py --data-dir training_data --output-dir models`
+3. Convert to TFLite: `python convert_to_tflite.py --model-path models/model.keras --output-path models/model_unquant.tflite`
+
+**Why Simple Training?**
+- ✅ Uses Keras Sequential API (much easier than raw TensorFlow)
+- ✅ Error-free and straightforward
+- ✅ Standard formats (Keras → TFLite)
+- ✅ No complex configuration needed
+- ✅ Faster training (10 epochs default vs 50)
+
+See the [Model Training section](#-model-training--verification-edge-sentinel) for detailed instructions.
 
 ---
 
@@ -257,15 +416,62 @@ The app should load in your browser.
 
 ## 🤖 Model Training & Verification (Edge Sentinel)
 
-The `model_training/` folder contains everything needed to **generate training data** and **train the Edge Sentinel CNN** that ultimately produces the `model_unquant.tflite` and `labels.txt` used on the frontend.
+The `model_training/` folder contains everything needed to **generate training data** and **train the Edge Sentinel CNN** that produces model weights and `labels.txt` for use in the application.
+
+### ⚡ Quick Start: Simple Training (Recommended)
+
+**For a simple, error-free training experience**, use the new `train_simple.py` script which uses Keras (much simpler than raw TensorFlow):
+
+**Step 1: Install Dependencies**
+
+```bash
+cd model_training
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+```
+
+**Step 2: Train the Model**
+
+```bash
+python train_simple.py --data-dir training_data --output-dir models
+```
+
+This will:
+- Load images from `training_data/` directory
+- Train a simple Keras CNN model
+- Save `models/model.keras` (Keras format)
+- Save `models/labels.txt` (Class labels)
+- Save `models/model_metadata.json` and `models/training_history.json`
+
+**Step 3: Convert to TFLite Format**
+
+After training, convert the model to TensorFlow Lite format:
+
+```bash
+python convert_to_tflite.py --model-path models/model.keras --output-path models/model_unquant.tflite
+```
+
+This creates `models/model_unquant.tflite` ready for your frontend!
+
+**Why use this approach?**
+- ✅ Uses Keras Sequential API (much simpler than raw TensorFlow)
+- ✅ Error-free and straightforward
+- ✅ Standard formats (Keras → TFLite)
+- ✅ No complex configuration needed
+
+---
+
+### 🔧 Advanced: Full TensorFlow Training (Alternative)
+
+If you prefer the full TensorFlow implementation, you can use `train_model.py`:
 
 ### 1. Model Training Environment Setup
 
-Model training requires TensorFlow and scientific Python packages. These are pinned in `model_training/requirements.txt` to versions that work well together on Python 3.11.
+**Important:** The advanced training script (`train_model.py`) uses **TensorFlow** (low-level API, no Keras). TensorFlow is required for training.
 
 You can either:
 - **Reuse the same `.venv`** as the backend (recommended), or
-- Create a **separate venv** if you want to isolate heavy ML deps.
+- Create a **separate venv** if you want to isolate ML dependencies.
 
 **Reuse same venv (from project root):**
 
@@ -276,10 +482,12 @@ python -m pip install -r requirements.txt
 ```
 
 This installs:
-- `tensorflow`
-- `numpy`, `pandas`, `matplotlib`, `pillow`
-- `scikit-learn`
-- `yfinance`, `mplfinance`, `opencv-python`
+- `tensorflow` (required for model training)
+- `numpy`, `pandas`, `matplotlib`, `pillow`, `scipy` (core scientific computing)
+- `scikit-learn` (for data splitting)
+- `yfinance`, `mplfinance` (for data generation)
+
+> **Note:** TensorFlow is required for training. The advanced script uses TensorFlow's low-level API (not Keras) for a lightweight implementation. For simpler training, use `train_simple.py` instead.
 
 ### 2. Generate Training Data (optional if you already have `training_data/`)
 
@@ -298,7 +506,42 @@ This will:
 
 You can control sample size by editing `samples_per_class` in the `__main__` block of `data_generator.py`.
 
+> **Note:** If you encounter Yahoo Finance rate limiting (429 errors), the script will automatically fall back to synthetic data generation, so training data will still be created successfully.
+
 ### 3. Train the Edge Sentinel Model
+
+**Option A: Simple Training (Recommended)**
+
+From `model_training/`:
+
+```bash
+python train_simple.py --data-dir training_data --output-dir models
+```
+
+**What this does:**
+- Loads and splits the dataset into train/test (80/20)
+- Builds and trains a simple CNN using **Keras Sequential API**
+- Uses Adam optimizer with sparse categorical crossentropy loss
+- Saves:
+  - `models/model.keras` ✅ (Keras model format)
+  - `models/labels.txt` ✅ (Class labels mapping)
+  - `models/model_metadata.json` ✅ (Model information)
+  - `models/training_history.json` ✅ (Training metrics per epoch)
+
+**Then convert to TFLite:**
+```bash
+python convert_to_tflite.py --model-path models/model.keras --output-path models/model_unquant.tflite
+```
+
+This creates:
+- `models/model_unquant.tflite` ✅ (TensorFlow Lite format for mobile/web)
+
+**Training output:**
+- Progress printed each epoch: loss, accuracy, validation loss, validation accuracy
+- Final test set evaluation
+- Model saved in Keras format, then converted to TFLite
+
+**Option B: Advanced TensorFlow Training**
 
 From `model_training/`:
 
@@ -306,51 +549,283 @@ From `model_training/`:
 python train_model.py --data-dir training_data --output-dir models
 ```
 
-What this does:
+**What this does:**
 - Loads and splits the dataset into train/val/test
-- Builds a CNN defined in `train_model.py`
-- Trains with data augmentation and callbacks (checkpointing, early stopping, LR reduction)
+- Builds and trains a CNN using **TensorFlow** (no Keras, uses low-level TensorFlow API)
+- Uses TensorFlow's automatic differentiation and Adam optimizer
 - Saves:
-  - `models/best_model.keras`
-  - `models/edge_sentinel_model.keras`
-  - `models/model_unquant.tflite`  ✅ (used by the mobile/web client)
-  - `models/labels.txt`
-  - `models/training_history.json`
-  - `models/model_info.json`
+  - `models/edge_sentinel_model/` ✅ (TensorFlow SavedModel format)
+  - `models/model_unquant.tflite` ✅ (TensorFlow Lite format for mobile/web)
+  - `models/edge_sentinel_model_weights.npz` ✅ (NumPy weights for compatibility)
+  - `models/labels.txt` ✅ (Class labels mapping)
+  - `models/training_history.json` ✅ (Training metrics per epoch)
+  - `models/model_info.json` ✅ (Model metadata and test accuracy)
 
-Training can take several minutes depending on your hardware and dataset size.
+**Training output:**
+- Progress printed each epoch: loss, accuracy, validation loss, validation accuracy
+- Final test set evaluation with top-3 accuracy
+- Model saved in TensorFlow SavedModel and TFLite formats
+
+Training can take several minutes to hours depending on your hardware and dataset size. The simple Keras approach is faster and easier to use.
 
 ### 4. Test the Trained Model
 
-From `model_training/`:
+You can test the trained model using TensorFlow or TFLite:
 
-```bash
-python test_model.py --model models/model_unquant.tflite --labels models/labels.txt --test-dir training_data
+**Option A: Test with TensorFlow SavedModel:**
+
+```python
+import tensorflow as tf
+import numpy as np
+from PIL import Image
+
+# Load the saved model
+model = tf.saved_model.load('models/edge_sentinel_model')
+
+# Load labels
+labels = []
+with open('models/labels.txt', 'r') as f:
+    for line in f:
+        parts = line.strip().split(' ', 1)
+        if len(parts) == 2:
+            labels.append(parts[1])
+
+# Test image
+img = Image.open('path/to/test_image.jpg').convert('RGB')
+img = img.resize((224, 224))
+img_array = np.array(img, dtype=np.float32) / 255.0
+img_batch = np.expand_dims(img_array, axis=0)
+img_tensor = tf.constant(img_batch, dtype=tf.float32)
+
+# Predict
+logits = model(img_tensor)
+probs = tf.nn.softmax(logits).numpy()
+pred_idx = np.argmax(probs[0])
+print(f"Predicted: {labels[pred_idx]} ({probs[0][pred_idx]:.2%})")
 ```
 
-You can also test a single image:
+**Option B: Test with TFLite (for mobile/web):**
 
-```bash
-python test_model.py --model models/model_unquant.tflite --labels models/labels.txt --image path/to/chart.jpg
+The `test_model.py` script should work with the generated `.tflite` file.
+
+### 5. Using the Trained Model
+
+**For Python inference (TensorFlow):**
+```python
+import tensorflow as tf
+import numpy as np
+from PIL import Image
+
+# Load the saved model
+model = tf.saved_model.load('models/edge_sentinel_model')
+
+# Load labels
+labels = []
+with open('models/labels.txt', 'r') as f:
+    for line in f:
+        parts = line.strip().split(' ', 1)
+        if len(parts) == 2:
+            labels.append(parts[1])
+
+# Preprocess image
+img = Image.open('chart.jpg').convert('RGB')
+img = img.resize((224, 224))
+img_array = np.array(img, dtype=np.float32) / 255.0
+img_batch = np.expand_dims(img_array, axis=0)
+img_tensor = tf.constant(img_batch, dtype=tf.float32)
+
+# Predict
+logits = model(img_tensor)
+probs = tf.nn.softmax(logits).numpy()
+pred_idx = np.argmax(probs[0])
+print(f"Class: {labels[pred_idx]}, Confidence: {probs[0][pred_idx]:.2%}")
 ```
 
-The script prints:
-- Top‑k predictions for single images
-- Approximate accuracy over a sample of images in the test directory.
+**For frontend integration:**
+- The current web frontend uses a **placeholder Edge Sentinel service** (`frontend/src/services/EdgeSentinel.ts`)
+- To use the actual model, you can:
+  1. Use the `.tflite` file with TensorFlow.js Lite runtime, OR
+  2. Create a backend API endpoint that loads the TensorFlow SavedModel and performs inference server-side
+  3. Update the frontend to call this endpoint
 
-### 5. Connecting Model Outputs to the App
+**Model files location:**
+- All model files are saved in `model_training/models/`
+- Copy `labels.txt` and `model_unquant.tflite` to `frontend/assets/` if needed
+- The TensorFlow SavedModel can be used directly in Python applications
+- The `.tflite` file can be used in mobile/web applications
 
-- The **React Native / web client** expects:
-  - `model_unquant.tflite`
-  - `labels.txt`
-- In this repo, the frontend’s `assets/` folder already contains:
-  - `frontend/assets/model_unquant.tflite`
-  - `frontend/assets/labels.txt`
-- To update the model used by the app:
-  1. Train a new model as above.
-  2. Copy the new `model_unquant.tflite` and `labels.txt` from `model_training/models/` into `frontend/assets/`.
+### 6. Quick Start: What to Do Now
 
-The current web frontend uses a **placeholder Edge Sentinel service** (`frontend/src/services/EdgeSentinel.ts`) to simulate chart detection; for full on-device inference you would integrate TensorFlow.js and load the converted model.
+**Step-by-step workflow (Simple Approach - Recommended):**
+
+1. **Activate your virtual environment:**
+   ```powershell
+   cd "C:\Users\Zaid Iqbal\FinSamaritan"
+   .\.venv\Scripts\Activate.ps1
+   ```
+
+2. **Install model training dependencies:**
+   ```powershell
+   cd model_training
+   python -m pip install --upgrade pip setuptools wheel
+   python -m pip install -r requirements.txt
+   ```
+
+3. **Generate training data (if you don't have it):**
+   ```powershell
+   python data_generator.py
+   ```
+   - This creates `training_data/` with labeled candlestick chart images
+   - If Yahoo Finance rate limits you, it will automatically use synthetic data
+
+4. **Train the model (Simple Keras approach):**
+   ```powershell
+   python train_simple.py --data-dir training_data --output-dir models
+   ```
+   - Watch for epoch-by-epoch progress
+   - Training completes when you see "🎉 Training complete!"
+   - Model files are saved in `models/` directory
+
+5. **Convert to TFLite format:**
+   ```powershell
+   python convert_to_tflite.py --model-path models/model.keras --output-path models/model_unquant.tflite
+   ```
+   - This converts the Keras model to TFLite format
+   - Creates `models/model_unquant.tflite` ready for frontend use
+
+6. **Verify training succeeded:**
+   ```powershell
+   # Check that these files exist:
+   ls models/model.keras
+   ls models/model_unquant.tflite
+   ls models/labels.txt
+   ls models/training_history.json
+   ls models/model_metadata.json
+   ```
+
+7. **Test the model (optional):**
+   - Create a simple test script as shown in section 4 above
+   - Or load the model in Python and test with sample images
+
+**Alternative: Advanced TensorFlow Approach**
+
+If you prefer the full TensorFlow implementation:
+
+```powershell
+python train_model.py --data-dir training_data --output-dir models
+```
+
+This uses raw TensorFlow (more complex but more control).
+
+**Expected training output (Simple Approach):**
+```
+🚀 Starting Simple Model Training (Keras)
+============================================================
+
+📂 Loading dataset...
+📁 Found 24 classes
+  📊 hammer_uptrend: 200 images
+  ...
+
+✂️ Splitting dataset...
+  Training: 3840 samples
+  Testing: 960 samples
+
+🏗️ Creating model (Keras CNN)...
+📊 Total parameters: 1,234,567
+
+🎓 Training model...
+============================================================
+Epoch 1/10 - loss: 2.3456 - accuracy: 0.1234 - val_loss: 2.1234 - val_accuracy: 0.2345
+Epoch 2/10 - loss: 1.9876 - accuracy: 0.3456 - val_loss: 1.8765 - val_accuracy: 0.4567
+...
+
+📊 Evaluating model...
+  Training Accuracy: 0.8234
+  Test Accuracy: 0.7890
+
+💾 Saving model...
+✅ Saved Keras model: models/model.keras
+✅ Saved metadata: models/model_metadata.json
+✅ Saved labels: models/labels.txt
+✅ Saved training history: models/training_history.json
+
+============================================================
+🎉 Training complete!
+📁 Model saved to: models
+📦 Model format: Keras (.keras)
+💡 Run convert_to_tflite.py to convert to .tflite format
+============================================================
+```
+
+**Then convert to TFLite:**
+```
+🔄 Converting Keras model to TensorFlow Lite...
+============================================================
+📂 Loading model from: models/model.keras
+✅ Model loaded successfully
+
+🔄 Converting to TFLite format...
+✅ TFLite model saved: models/model_unquant.tflite
+📦 Model size: 4.56 MB
+
+============================================================
+🎉 Conversion complete!
+📁 TFLite model: models/model_unquant.tflite
+💡 You can now use this model in your frontend
+============================================================
+```
+
+**Expected training output (Advanced TensorFlow Approach):**
+```
+🚀 Starting Edge Sentinel Model Training (TensorFlow)
+============================================================
+
+📂 Loading dataset...
+📁 Found 24 classes
+  📊 hammer_uptrend: 200 images
+  ...
+
+✂️ Splitting dataset...
+  Training: 4320 samples
+  Validation: 1080 samples
+  Testing: 600 samples
+
+🏗️ Creating model architecture (TensorFlow)...
+📊 Total parameters: 2,123,456
+
+🎓 Starting training...
+============================================================
+Epoch 1/50 - loss: 2.3456 - acc: 0.1234 - val_loss: 2.1234 - val_acc: 0.2345
+Epoch 2/50 - loss: 1.9876 - acc: 0.3456 - val_loss: 1.8765 - val_acc: 0.4567
+...
+
+📊 Evaluating on test set...
+  Test Accuracy: 0.8234
+  Test Top-3 Accuracy: 0.9456
+
+💾 Saving model...
+✅ Saved TensorFlow model: models/edge_sentinel_model
+✅ Saved model weights: models/edge_sentinel_model_weights.npz
+🔄 Converting to TFLite...
+✅ Saved TFLite model: models/model_unquant.tflite
+✅ Saved labels: models/labels.txt
+✅ Saved training history: models/training_history.json
+✅ Saved model info: models/model_info.json
+
+============================================================
+🎉 Training complete!
+📁 Models saved to: models
+📦 Model format: TensorFlow SavedModel + TFLite
+============================================================
+```
+
+**Troubleshooting:**
+- If training fails, check the error message
+- Common issues are covered in the "Model Issues" section below
+- For simple training, ensure TensorFlow/Keras is installed: `python -c "import tensorflow as tf; print(tf.__version__)"`
+- For advanced training, ensure TensorFlow is properly installed: `python -c "import tensorflow as tf; print(tf.__version__)"`
+- If you get import errors, make sure scikit-learn is installed: `pip install scikit-learn`
 
 ---
 
@@ -639,19 +1114,87 @@ npm run build
 
 ### Model Issues
 
-#### Issue: Edge Sentinel not detecting charts
+#### Issue: TensorFlow/Keras import errors during training
 
 **Solution:**
-- Current implementation uses placeholder logic
-- For production, integrate actual TensorFlow.js model
-- Check `frontend/src/services/EdgeSentinel.ts` for implementation
+- Ensure TensorFlow is installed: `python -m pip install tensorflow`
+- Check TensorFlow version: `python -c "import tensorflow as tf; print(tf.__version__)"`
+- For simple training (`train_simple.py`), TensorFlow 2.x includes Keras automatically
+- For advanced training (`train_model.py`), ensure you're using TensorFlow 2.x (the script uses low-level TensorFlow API)
+- For GPU support, install `tensorflow-gpu` instead of `tensorflow`
+- Ensure scikit-learn is installed: `pip install scikit-learn`
 
-#### Issue: Model integration
+#### Issue: Training is slow
 
 **Solution:**
-- Current implementation uses simulated detection
-- For production, convert TensorFlow Lite model to TensorFlow.js format
-- Load model in browser using TensorFlow.js
+- TensorFlow will use GPU automatically if available
+- For faster training, consider:
+  - Using `train_simple.py` (simpler, faster) instead of `train_model.py`
+  - Reducing `samples_per_class` in `data_generator.py`
+  - Reducing `EPOCHS` in training script (default is 10 for simple, 50 for advanced)
+  - Using a smaller `BATCH_SIZE` if memory is limited
+  - Enabling GPU support if you have a compatible GPU
+
+#### Issue: TFLite conversion fails
+
+**Solution:**
+- Make sure you've trained the model first using `train_simple.py`
+- Check that `models/model.keras` exists
+- Verify TensorFlow Lite converter is available: `python -c "import tensorflow as tf; print(tf.lite)"`
+- If conversion fails, the Keras model can still be used directly in Python
+
+#### Issue: Model files not found after training
+
+**Solution:**
+- Check that training completed successfully (look for "🎉 Training complete!" message)
+- For simple training, verify files exist in `model_training/models/`:
+  - `model.keras` (Keras model format)
+  - `model_unquant.tflite` (after running convert_to_tflite.py)
+  - `labels.txt` (Class labels)
+  - `training_history.json` (Training metrics)
+  - `model_metadata.json` (Model metadata)
+- For advanced training, verify files exist:
+  - `edge_sentinel_model/` (TensorFlow SavedModel directory)
+  - `model_unquant.tflite` (TFLite format)
+  - `edge_sentinel_model_weights.npz` (NumPy weights for compatibility)
+  - `labels.txt` (Class labels)
+  - `training_history.json` (Training metrics)
+  - `model_info.json` (Model metadata)
+- If TFLite file is missing, run `convert_to_tflite.py` after simple training
+
+#### Issue: Edge Sentinel not detecting charts (frontend)
+
+**Solution:**
+- Current implementation uses placeholder logic in `frontend/src/services/EdgeSentinel.ts`
+- To use the actual trained model:
+  1. Load the TensorFlow SavedModel or TFLite model server-side (in backend)
+  2. Create an API endpoint for image classification
+  3. Update frontend to call this endpoint
+  4. OR use the `.tflite` file with TensorFlow.js Lite runtime for client-side inference
+
+#### Issue: Cannot load model for inference
+
+**Solution:**
+```python
+# Make sure you're loading the correct file format
+import tensorflow as tf
+from tensorflow import keras
+import numpy as np
+
+# Option 1: Load Keras model (from train_simple.py)
+model = keras.models.load_model('models/model.keras')
+
+# Option 2: Load TensorFlow SavedModel (from train_model.py)
+model = tf.saved_model.load('models/edge_sentinel_model')
+
+# Option 3: Load TFLite model (for mobile/web)
+interpreter = tf.lite.Interpreter(model_path='models/model_unquant.tflite')
+interpreter.allocate_tensors()
+
+# Option 4: Load NumPy weights (for compatibility - requires model reconstruction)
+data = np.load('models/edge_sentinel_model_weights.npz')
+# Note: You'll need to reconstruct the model architecture and load weights manually
+```
 
 ---
 
