@@ -84,16 +84,7 @@ To confirm:
 $env:GEMINI_API_KEY
 ```
 
-### Step 4: (Optional) Pre-generate Stock Cache Data
-
-```powershell
-cd backend
-python stock_generator.py
-```
-
-This creates or refreshes `stock_data.csv` with Top 50 Nifty stocks used by the backend.
-
-### Step 5: Start the Backend Server
+### Step 4: Start the Backend Server
 
 From `backend/` in the activated venv:
 
@@ -107,7 +98,7 @@ uvicorn main:app --reload
 
 Leave this terminal running. The API will be available at `http://localhost:8000`.
 
-### Step 6: Start the Frontend (New PowerShell Window)
+### Step 5: Start the Frontend (New PowerShell Window)
 
 Open a **new** PowerShell window (frontend does not need the Python venv):
 
@@ -123,7 +114,7 @@ npm run dev
 
 Once it starts, open `http://localhost:3000` in your browser.
 
-### Step 7: (Optional but Recommended) Train / Re-train the Model
+### Step 6: (Optional but Recommended) Train / Re-train the Model
 
 Back in your **first** PowerShell window where the Python venv is activated:
 
@@ -149,7 +140,7 @@ python convert_to_tflite.py --model-path models/model.keras --output-path models
 > .\train.bat
 > ```
 
-### Step 8: Run the Tests
+### Step 7: Run the Tests
 
 With backend and frontend both running:
 
@@ -240,10 +231,13 @@ Always create the venv in the **project root**, then work inside `backend/`.
 **Windows (PowerShell, Python 3.11):**
 
 ```powershell
-cd "C:\Users\Zaid Iqbal\FinSamaritan"
+cd "C:\Users\<YourUser>\FinSamaritan"
 
-# Create venv with Python 3.11 explicitly (adjust path if different)
-& "C:\Users\Zaid Iqbal\AppData\Local\Programs\Python\Python311\python.exe" -m venv .venv
+# Create venv with Python 3.11 (use py -3.11 if you have multiple Python versions)
+py -3.11 -m venv .venv
+
+# Or if you know the exact path to Python 3.11:
+# & "C:\Users\<YourUser>\AppData\Local\Programs\Python\Python311\python.exe" -m venv .venv
 
 # Allow script execution for this session only
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -257,7 +251,7 @@ python --version  # Should now show Python 3.11.x
 **Windows (CMD alternative):**
 
 ```cmd
-cd C:\Users\Zaid Iqbal\FinSamaritan
+cd C:\Users\<YourUser>\FinSamaritan
 python -m venv .venv
 .\.venv\Scripts\activate.bat
 ```
@@ -306,19 +300,7 @@ echo 'export GEMINI_API_KEY="your-gemini-api-key-here"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### Step 4: (Optional) Generate Backup Stock Data
-
-```bash
-cd backend
-python stock_generator.py
-```
-
-This will:
-- Fetch Top 50 Nifty stocks
-- Save to `stock_data.csv`
-- Take ~2–3 minutes
-
-### Step 5: Start the Backend Server
+### Step 4: Start the Backend Server
 
 From `backend/` with the venv active:
 
@@ -342,7 +324,7 @@ INFO:     Application startup complete.
 
 **Server is now running on:** `http://localhost:8000`
 
-### Step 6: Verify Backend is Running
+### Step 5: Verify Backend is Running
 
 Open a new terminal and test:
 
@@ -660,7 +642,7 @@ print(f"Class: {labels[pred_idx]}, Confidence: {probs[0][pred_idx]:.2%}")
 
 1. **Activate your virtual environment:**
    ```powershell
-   cd "C:\Users\Zaid Iqbal\FinSamaritan"
+   cd "C:\Users\<YourUser>\FinSamaritan"
    .\.venv\Scripts\Activate.ps1
    ```
 

@@ -11,8 +11,8 @@ google-generativeai==0.8.3
 # Keep google-genai for forward compatibility, but code defaults to generativeai
 google-genai==0.3.0
 
-# Data processing (Python 3.13 compatible, no TensorFlow dependency here)
-numpy>=2.1.0,<3.0.0
+# Data processing (compatible with TensorFlow 2.15.0)
+numpy>=1.23.5,<2.0.0
 pandas>=2.2.0,<3.0.0
 
 # Inference runtime + image handling (use TensorFlow CPU on Windows)
