@@ -15,27 +15,36 @@ const Watchlist: React.FC<WatchlistProps> = ({ searchQuery }) => {
     loadWatchlist();
   }, []);
 
+  // Reload when search query changes (to show filtered results)
+  useEffect(() => {
+    if (searchQuery === '') {
+      loadWatchlist();
+    }
+  }, [searchQuery]);
+
   const loadWatchlist = async () => {
     try {
       setLoading(true);
       const symbolList = await apiService.getWatchlist();
       setSymbols(symbolList);
       
-      // Fetch data for each symbol
-      const stockData = await Promise.all(
-        symbolList.map(async (symbol) => {
-          try {
-            const result = await apiService.callTool('view_watchlist', {});
-            const stock = result.stocks?.find((s: any) => s.symbol === symbol);
-            return stock || { symbol };
-          } catch {
-            return { symbol };
-          }
-        })
-      );
-      setStocks(stockData.filter(Boolean));
+      // Fetch data using the view_watchlist tool (which handles batching)
+      try {
+        const result = await apiService.callTool('view_watchlist', {});
+        if (result.success && result.stocks) {
+          setStocks(result.stocks);
+        } else {
+          // Fallback: create basic entries for symbols
+          setStocks(symbolList.map(symbol => ({ symbol })));
+        }
+      } catch (error) {
+        console.error('Failed to load watchlist data:', error);
+        // Fallback: create basic entries for symbols
+        setStocks(symbolList.map(symbol => ({ symbol })));
+      }
     } catch (error) {
       console.error('Failed to load watchlist:', error);
+      setStocks([]);
     } finally {
       setLoading(false);
     }
@@ -90,12 +99,12 @@ const Watchlist: React.FC<WatchlistProps> = ({ searchQuery }) => {
                 <td style={{ fontWeight: 600 }}>{stock.symbol}</td>
                 <td>{stock.name || '-'}</td>
                 <td>
-                  {stock.current_price
+                  {stock.current_price !== null && stock.current_price !== undefined
                     ? `$${stock.current_price.toFixed(2)}`
-                    : '-'}
+                    : <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Loading...</span>}
                 </td>
                 <td>
-                  {stock.change_percent !== undefined ? (
+                  {stock.change_percent !== null && stock.change_percent !== undefined ? (
                     <span
                       className={`badge ${
                         stock.change_percent >= 0
@@ -107,7 +116,7 @@ const Watchlist: React.FC<WatchlistProps> = ({ searchQuery }) => {
                       {stock.change_percent.toFixed(2)}%
                     </span>
                   ) : (
-                    '-'
+                    <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>-</span>
                   )}
                 </td>
                 <td>

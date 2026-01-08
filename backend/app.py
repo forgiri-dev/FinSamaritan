@@ -20,12 +20,47 @@ CORS(app)
 
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+model = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # List available models first
+        try:
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            print(f"Available Gemini models: {available_models}")
+        except Exception as e:
+            print(f"Could not list models: {e}")
+            available_models = []
+        
+        # Try different model names in order of preference
+        # Use the most common and stable model names
+        model_names = ['gemini-pro', 'models/gemini-pro', 'gemini-1.5-pro', 'models/gemini-1.5-pro']
+        
+        for model_name in model_names:
+            try:
+                # Remove 'models/' prefix if present in our list but not needed
+                clean_name = model_name.replace('models/', '')
+                test_model = genai.GenerativeModel(clean_name)
+                model = test_model
+                print(f"✓ Gemini AI model '{clean_name}' loaded successfully")
+                break
+            except Exception as e:
+                error_msg = str(e)
+                # Don't print if it's just a 404 (model not found)
+                if '404' not in error_msg:
+                    print(f"Model '{model_name}' error: {error_msg}")
+                continue
+        
+        if model is None:
+            print("⚠ Warning: No Gemini model could be loaded. AI features will be disabled.")
+            print("  Try setting GEMINI_API_KEY and ensure your API key has access to Gemini models.")
+    except Exception as e:
+        model = None
+        print(f"⚠ Warning: Failed to configure Gemini API: {e}")
 else:
     model = None
-    print("Warning: GEMINI_API_KEY not set. AI features will be disabled.")
+    print("⚠ Warning: GEMINI_API_KEY not set. AI features will be disabled.")
 
 # Load Edge Sentinel model (if available)
 EDGE_SENTINEL_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'model_training', 'models', 'model_unquant.tflite')
@@ -300,8 +335,28 @@ When the user asks about their portfolio, watchlist, or needs analysis, use the 
         full_prompt = "\n".join(conversation_parts)
         
         # Generate response with Gemini
-        gemini_response = model.generate_content(full_prompt)
-        response_text = gemini_response.text
+        try:
+            if not model:
+                return jsonify({
+                    "error": "Gemini API not configured. Please set GEMINI_API_KEY environment variable.",
+                    "tools_used": tool_calls_used
+                }), 500
+            
+            gemini_response = model.generate_content(full_prompt)
+            response_text = gemini_response.text if hasattr(gemini_response, 'text') else str(gemini_response)
+        except Exception as gemini_error:
+            error_msg = str(gemini_error)
+            # If we have tool results, still return them even if Gemini fails
+            if tool_results:
+                response_text = f"I used the following tools but encountered an error with the AI response:\n\n"
+                for tr in tool_results:
+                    response_text += f"**{tr['tool']}**: {str(tr['result'])}\n\n"
+                response_text += f"\nError: {error_msg}"
+            else:
+                return jsonify({
+                    "error": f"Gemini API error: {error_msg}",
+                    "tools_used": tool_calls_used
+                }), 500
         
         # Format response to include tool usage info
         if tool_calls_used:
@@ -313,7 +368,10 @@ When the user asks about their portfolio, watchlist, or needs analysis, use the 
         })
     
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Chat endpoint error: {error_details}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @app.route('/api/tools/<tool_name>', methods=['POST'])
 def call_tool(tool_name):
@@ -369,11 +427,23 @@ def watchlist():
     
     elif request.method == 'POST':
         data = request.json
-        symbol = data.get('symbol', '').upper()
-        if database.add_to_watchlist(symbol):
-            return jsonify({"success": True, "message": f"Added {symbol} to watchlist"})
-        else:
-            return jsonify({"success": False, "error": "Failed to add to watchlist"}), 400
+        symbol = data.get('symbol', '').upper().strip()
+        
+        # Basic validation
+        if not symbol:
+            return jsonify({"success": False, "error": "Symbol cannot be empty"}), 400
+        
+        if len(symbol) > 10:  # Reasonable max length for stock symbols
+            return jsonify({"success": False, "error": "Symbol too long"}), 400
+        
+        try:
+            if database.add_to_watchlist(symbol):
+                return jsonify({"success": True, "message": f"Added {symbol} to watchlist"})
+            else:
+                return jsonify({"success": False, "error": "Failed to add to watchlist. Please try again."}), 500
+        except Exception as e:
+            print(f"Error in watchlist POST: {e}")
+            return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
     
     elif request.method == 'DELETE':
         data = request.json
@@ -406,9 +476,6 @@ def analyze_image():
         # Use Gemini for additional analysis
         gemini_analysis = ""
         if model and 'error' not in edge_result:
-            # Convert image to base64 for Gemini
-            image_b64 = base64.b64encode(image_data).decode('utf-8')
-            
             prompt = f"""Analyze this candlestick chart image. 
 The Edge Sentinel model detected:
 - Pattern: {edge_result.get('pattern', 'unknown')}
@@ -422,15 +489,25 @@ Provide a detailed analysis of:
 4. Risk factors to consider"""
             
             try:
-                # For Gemini, we need to send the image properly
-                # This is a simplified version
-                gemini_response = model.generate_content([
-                    prompt,
-                    Image.open(io.BytesIO(image_data))
-                ])
-                gemini_analysis = gemini_response.text
+                # Open image for Gemini
+                image = Image.open(io.BytesIO(image_data))
+                
+                # Try with vision-capable model
+                try:
+                    gemini_response = model.generate_content([prompt, image])
+                    gemini_analysis = gemini_response.text if hasattr(gemini_response, 'text') else str(gemini_response)
+                except Exception as vision_error:
+                    # If vision fails, try text-only
+                    try:
+                        text_prompt = f"{prompt}\n\nNote: Image analysis is not available, but based on the Edge Sentinel detection above, provide analysis."
+                        gemini_response = model.generate_content(text_prompt)
+                        gemini_analysis = gemini_response.text if hasattr(gemini_response, 'text') else str(gemini_response)
+                    except Exception as text_error:
+                        gemini_analysis = f"Gemini analysis unavailable. Error: {str(vision_error)}"
             except Exception as e:
                 gemini_analysis = f"Gemini analysis unavailable: {str(e)}"
+        elif not model:
+            gemini_analysis = "Gemini API not configured. Please set GEMINI_API_KEY environment variable."
         
         return jsonify({
             "edge_sentinel": edge_result,

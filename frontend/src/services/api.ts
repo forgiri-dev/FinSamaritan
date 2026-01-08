@@ -59,7 +59,10 @@ export const apiService = {
   },
 
   addToWatchlist: async (symbol: string): Promise<void> => {
-    await api.post('/watchlist', { symbol });
+    const response = await api.post('/watchlist', { symbol });
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to add to watchlist');
+    }
   },
 
   removeFromWatchlist: async (symbol: string): Promise<void> => {

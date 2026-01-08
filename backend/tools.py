@@ -379,18 +379,40 @@ def view_watchlist() -> Dict[str, Any]:
                 "stocks": []
             }
         
-        # Get current data for watchlist stocks
+        # Get current data for watchlist stocks with rate limiting
         stocks_data = []
         for symbol in symbols:
-            data = data_engine.get_stock_data(symbol)
-            if data:
+            try:
+                data = data_engine.get_stock_data(symbol)
+                if data:
+                    stocks_data.append({
+                        "symbol": data["symbol"],
+                        "name": data["name"],
+                        "current_price": data["current_price"],
+                        "change_percent": round(((data["current_price"] - data["previous_close"]) / data["previous_close"]) * 100, 2) if data["previous_close"] > 0 else 0,
+                        "pe_ratio": data["pe_ratio"],
+                        "sector": data["sector"]
+                    })
+                else:
+                    # Add symbol even if data fetch failed (for display purposes)
+                    stocks_data.append({
+                        "symbol": symbol.upper(),
+                        "name": symbol.upper(),
+                        "current_price": None,
+                        "change_percent": None,
+                        "pe_ratio": None,
+                        "sector": "Unknown"
+                    })
+            except Exception as e:
+                print(f"Error processing {symbol} in watchlist: {e}")
+                # Add symbol even if there's an error
                 stocks_data.append({
-                    "symbol": data["symbol"],
-                    "name": data["name"],
-                    "current_price": data["current_price"],
-                    "change_percent": round(((data["current_price"] - data["previous_close"]) / data["previous_close"]) * 100, 2) if data["previous_close"] > 0 else 0,
-                    "pe_ratio": data["pe_ratio"],
-                    "sector": data["sector"]
+                    "symbol": symbol.upper(),
+                    "name": symbol.upper(),
+                    "current_price": None,
+                    "change_percent": None,
+                    "pe_ratio": None,
+                    "sector": "Unknown"
                 })
         
         return {

@@ -118,7 +118,18 @@ def add_to_watchlist(symbol: str) -> bool:
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('INSERT OR IGNORE INTO watchlist (symbol) VALUES (?)', (symbol,))
+        
+        # Check if symbol already exists
+        cursor.execute('SELECT id FROM watchlist WHERE symbol = ?', (symbol,))
+        exists = cursor.fetchone()
+        
+        if exists:
+            # Symbol already exists, return True (success)
+            conn.close()
+            return True
+        
+        # Insert new symbol
+        cursor.execute('INSERT INTO watchlist (symbol) VALUES (?)', (symbol,))
         conn.commit()
         added = cursor.rowcount > 0
         conn.close()

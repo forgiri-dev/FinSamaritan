@@ -63,7 +63,7 @@ const Portfolio: React.FC = () => {
   };
 
   const handleRemove = async (symbol: string) => {
-    if (!confirm(`Remove ${symbol} from portfolio?`)) return;
+    if (!window.confirm(`Remove ${symbol} from portfolio?`)) return;
 
     try {
       await apiService.callTool('manage_portfolio', {

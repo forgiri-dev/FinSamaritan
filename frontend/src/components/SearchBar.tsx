@@ -15,14 +15,29 @@ const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, onAddToWatchlist
     if (!value.trim()) return;
     
     const symbol = value.trim().toUpperCase();
+    
+    // Basic validation
+    if (symbol.length === 0) {
+      alert('Please enter a symbol');
+      return;
+    }
+    
+    if (symbol.length > 10) {
+      alert('Symbol is too long');
+      return;
+    }
+    
     setIsAdding(true);
     try {
       await apiService.addToWatchlist(symbol);
       onChange('');
       onAddToWatchlist(symbol);
-    } catch (error) {
+      // Show success message
+      console.log(`Successfully added ${symbol} to watchlist`);
+    } catch (error: any) {
       console.error('Failed to add to watchlist:', error);
-      alert('Failed to add symbol to watchlist');
+      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to add symbol to watchlist';
+      alert(errorMsg);
     } finally {
       setIsAdding(false);
     }
