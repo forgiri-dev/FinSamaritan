@@ -1,13 +1,32 @@
-/.venv/
-venv/
-*.pyc
+
+# Python
 __pycache__/
-.env
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+backend/.env
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+flutter_*.log
+
+# IDE
 .vscode/
-*.db
-*.sqlite3
-node_modules/
-frontend/dist/
-frontend/node_modules/
-*.log
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
