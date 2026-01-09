@@ -100,6 +100,48 @@ def get_available_model(preferred_names=None, fallback_names=None):
     
     raise ValueError("No available Gemini models found. Check your API key and model availability.")
 
+def handle_gemini_error(error: Exception) -> Dict[str, Any]:
+    """
+    Helper function to handle Gemini API errors, especially quota/rate limit errors.
+    Returns a standardized error response.
+    """
+    import re
+    error_str = str(error)
+    
+    # Check for quota/rate limit errors
+    if "429" in error_str or "quota" in error_str.lower() or "rate limit" in error_str.lower() or "exceeded" in error_str.lower():
+        # Extract retry delay if available
+        retry_delay = None
+        if "retry" in error_str.lower():
+            retry_match = re.search(r'retry.*?(\d+\.?\d*)\s*s', error_str, re.IGNORECASE)
+            if retry_match:
+                retry_delay = float(retry_match.group(1))
+        
+        error_message = "⚠️ API Quota Exceeded\n\n"
+        error_message += "You've reached the free tier limit for Gemini API requests (20 requests per day).\n\n"
+        error_message += "Options:\n"
+        error_message += "1. Wait for the quota to reset (usually resets daily)\n"
+        if retry_delay:
+            minutes = int(retry_delay / 60)
+            seconds = int(retry_delay % 60)
+            error_message += f"2. Retry in approximately {minutes} minutes {seconds} seconds\n"
+        error_message += "3. Upgrade your Gemini API plan at https://ai.google.dev/pricing\n"
+        error_message += "4. Use a different API key with available quota\n\n"
+        error_message += "For more info: https://ai.google.dev/gemini-api/docs/rate-limits"
+        
+        return {
+            "success": False,
+            "error": error_message,
+            "error_type": "quota_exceeded",
+            "retry_delay": retry_delay
+        }
+    
+    # Generic error
+    return {
+        "success": False,
+        "error": f"API Error: {error_str}"
+    }
+
 # Model for agent (fast and cheap)
 try:
     agent_model, agent_model_name = get_available_model(
@@ -265,6 +307,13 @@ Format in markdown."""
         import traceback
         error_details = traceback.format_exc()
         print(f"Error in agent_screener: {error_details}")
+        
+        # Check if it's a quota error
+        error_response = handle_gemini_error(e)
+        if error_response.get("error_type") == "quota_exceeded":
+            # Return quota error as JSON instead of HTTPException
+            return error_response
+        
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 
@@ -285,9 +334,18 @@ async def analyze_chart(request: ChartAnalysisRequest):
         async def run_edge_sentinel():
             """Run Edge Sentinel analysis"""
             try:
-                return analyze_chart_with_edge_sentinel(request.image_base64)
+                result = analyze_chart_with_edge_sentinel(request.image_base64)
+                # Ensure result has success field
+                if result is None:
+                    return {"success": False, "error": "Edge Sentinel returned None"}
+                if "success" not in result:
+                    result["success"] = False
+                return result
             except Exception as e:
-                return {"success": False, "error": str(e)}
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"Edge Sentinel error: {error_trace}")
+                return {"success": False, "error": f"Edge Sentinel analysis failed: {str(e)}"}
         
         async def run_gemini_vision():
             """Run Gemini Vision analysis"""
@@ -310,13 +368,25 @@ Format your response in clear markdown with sections. Be specific with price lev
                     vision_prompt += f"\n\nAdditional Context: {request.additional_context}"
 
                 response = vision_model.generate_content([vision_prompt, image])
+                if response is None or not hasattr(response, 'text'):
+                    return {"success": False, "error": "Gemini Vision returned empty response"}
+                
+                analysis_text = response.text if hasattr(response, 'text') else str(response)
+                if not analysis_text or analysis_text.strip() == "":
+                    return {"success": False, "error": "Gemini Vision returned empty analysis"}
+                
                 return {
                     "success": True,
-                    "analysis": response.text,
+                    "analysis": analysis_text,
                     "model": vision_model_name or "gemini-2.5-pro"
                 }
             except Exception as e:
-                return {"success": False, "error": str(e)}
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"Gemini Vision error: {error_trace}")
+                # Use helper function to handle quota errors
+                error_response = handle_gemini_error(e)
+                return error_response
         
         # Run both analyses concurrently
         edge_result, gemini_result = await asyncio.gather(
@@ -425,6 +495,20 @@ async def agent_chat(request: ChatRequest):
     Main chat interface that uses Gemini 2.5 with function calling to tools.py functions.
     """
     try:
+        # Validate request
+        if not request.message or request.message.strip() == "":
+            return {
+                "success": False,
+                "error": "Message cannot be empty"
+            }
+        
+        # Check if agent_model is available
+        if agent_model is None:
+            return {
+                "success": False,
+                "error": "Agent model is not initialized. Please check your GEMINI_API_KEY."
+            }
+        
         # Define available tools for the agent
         tools_schema = [
             {
@@ -509,9 +593,19 @@ async def agent_chat(request: ChatRequest):
         conversation_text = ""
         if request.conversation_history:
             for msg in request.conversation_history:
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                conversation_text += f"{role.capitalize()}: {content}\n"
+                # Handle both dict and string formats
+                if isinstance(msg, dict):
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                elif isinstance(msg, str):
+                    # If it's a string, try to parse it or use as is
+                    role = "user"
+                    content = msg
+                else:
+                    continue
+                
+                if content and content.strip():
+                    conversation_text += f"{role.capitalize()}: {content}\n"
         
         conversation_text += f"User: {request.message}\nAssistant:"
         
@@ -529,16 +623,77 @@ When users ask questions, use the available tools to get data, then provide help
         full_prompt = f"{system_prompt}\n\n{conversation_text}"
         
         # For now, use a simple approach - in production, implement proper function calling
-        response = agent_model.generate_content(full_prompt)
+        try:
+            response = agent_model.generate_content(full_prompt)
+            
+            # Check if response is valid
+            if response is None:
+                return {
+                    "success": False,
+                    "error": "Agent model returned None response"
+                }
+            
+            # Extract text from response - handle different response formats
+            response_text = None
+            try:
+                # Standard way - most common
+                if hasattr(response, 'text') and response.text:
+                    response_text = str(response.text)
+                # Alternative: check candidates
+                elif hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'content'):
+                        content = candidate.content
+                        if hasattr(content, 'parts') and content.parts:
+                            # Get text from first part
+                            part = content.parts[0]
+                            if hasattr(part, 'text'):
+                                response_text = str(part.text)
+                        elif hasattr(content, 'text'):
+                            response_text = str(content.text)
+                # Fallback: try to convert to string
+                elif isinstance(response, str):
+                    response_text = response
+                else:
+                    # Last resort: convert entire response to string
+                    response_text = str(response)
+            except Exception as extract_error:
+                import traceback
+                print(f"Error extracting response text: {traceback.format_exc()}")
+                # Try to get any text we can
+                response_text = str(response) if response else None
+            
+            if response_text is None or (isinstance(response_text, str) and response_text.strip() == ""):
+                return {
+                    "success": False,
+                    "error": "Agent model returned empty response"
+                }
+            
+            return {
+                "success": True,
+                "response": response_text,
+                "tools_used": []  # Would be populated with actual tool calls in production
+            }
+        except Exception as model_error:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Agent model error: {error_trace}")
+            # Use helper function to handle quota errors
+            error_response = handle_gemini_error(model_error)
+            return error_response
         
-        return {
-            "success": True,
-            "response": response.text,
-            "tools_used": []  # Would be populated with actual tool calls in production
-        }
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error in agent chat: {str(e)}")
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Agent chat endpoint error: {error_trace}")
+        # Return error response instead of raising exception to avoid 500
+        return {
+            "success": False,
+            "error": f"Error in agent chat: {str(e)}",
+            "details": error_trace if os.getenv("DEBUG", "false").lower() == "true" else None
+        }
 
 
 if __name__ == "__main__":

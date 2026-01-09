@@ -91,31 +91,69 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
 
       // Build combined analysis from dual-processing results
       String combinedAnalysis = '';
+      bool hasAnyAnalysis = false;
       
-      if (result['edge_sentinel'] != null && result['edge_sentinel']['success'] == true) {
+      // Edge Sentinel Analysis
+      if (result['edge_sentinel'] != null) {
         final edgeResult = result['edge_sentinel'];
-        final topPred = edgeResult['top_prediction'];
-        if (topPred != null) {
+        if (edgeResult['success'] == true) {
+          final topPred = edgeResult['top_prediction'];
+          if (topPred != null) {
+            combinedAnalysis += '## Edge Sentinel Analysis (Local Model)\n\n';
+            combinedAnalysis += '**Pattern:** ${topPred['pattern']}\n';
+            combinedAnalysis += '**Trend:** ${topPred['trend']}\n';
+            combinedAnalysis += '**Confidence:** ${(topPred['confidence'] * 100).toStringAsFixed(1)}%\n\n';
+            hasAnyAnalysis = true;
+          } else if (edgeResult['predictions'] != null && (edgeResult['predictions'] as List).isNotEmpty) {
+            // Fallback: use first prediction if top_prediction is missing
+            final predictions = edgeResult['predictions'] as List;
+            if (predictions.isNotEmpty) {
+              final firstPred = predictions[0];
+              combinedAnalysis += '## Edge Sentinel Analysis (Local Model)\n\n';
+              combinedAnalysis += '**Pattern:** ${firstPred['pattern']}\n';
+              combinedAnalysis += '**Trend:** ${firstPred['trend']}\n';
+              combinedAnalysis += '**Confidence:** ${(firstPred['confidence'] * 100).toStringAsFixed(1)}%\n\n';
+              hasAnyAnalysis = true;
+            }
+          }
+        } else {
+          // Show error if Edge Sentinel failed
           combinedAnalysis += '## Edge Sentinel Analysis (Local Model)\n\n';
-          combinedAnalysis += '**Pattern:** ${topPred['pattern']}\n';
-          combinedAnalysis += '**Trend:** ${topPred['trend']}\n';
-          combinedAnalysis += '**Confidence:** ${(topPred['confidence'] * 100).toStringAsFixed(1)}%\n\n';
+          combinedAnalysis += '❌ **Error:** ${edgeResult['error'] ?? 'Analysis failed'}\n\n';
         }
       }
       
-      if (result['gemini_vision'] != null && result['gemini_vision']['success'] == true) {
-        combinedAnalysis += '## Gemini Vision Analysis\n\n';
-        combinedAnalysis += result['gemini_vision']['analysis'] ?? '';
-        combinedAnalysis += '\n\n';
+      // Gemini Vision Analysis
+      if (result['gemini_vision'] != null) {
+        final geminiResult = result['gemini_vision'];
+        if (geminiResult['success'] == true) {
+          final analysis = geminiResult['analysis'];
+          if (analysis != null && analysis.toString().isNotEmpty) {
+            combinedAnalysis += '## Gemini Vision Analysis\n\n';
+            combinedAnalysis += analysis.toString();
+            combinedAnalysis += '\n\n';
+            hasAnyAnalysis = true;
+          }
+        } else {
+          // Show error if Gemini Vision failed
+          combinedAnalysis += '## Gemini Vision Analysis\n\n';
+          combinedAnalysis += '❌ **Error:** ${geminiResult['error'] ?? 'Analysis failed'}\n\n';
+        }
       }
       
+      // Combined Summary
       if (result['combined_summary'] != null && result['combined_summary'].toString().isNotEmpty) {
         combinedAnalysis += '## Combined Analysis\n\n';
         combinedAnalysis += result['combined_summary'];
+        hasAnyAnalysis = true;
       }
 
       setState(() {
-        _analysis = combinedAnalysis.isNotEmpty ? combinedAnalysis : 'Analysis completed';
+        if (combinedAnalysis.isNotEmpty) {
+          _analysis = combinedAnalysis;
+        } else {
+          _error = 'No analysis results available. Both models may have failed.';
+        }
         _isLoading = false;
       });
     } catch (e) {

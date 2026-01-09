@@ -4,6 +4,11 @@
       "symbol": "TCS",
       "shares": 50,
       "buy_price": 3263.7
+    },
+    {
+      "symbol": "INFY",
+      "shares": 12,
+      "buy_price": 1655.0
     }
   ],
   "watchlist": []

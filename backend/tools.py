@@ -9,12 +9,41 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import os
+# Try to import TensorFlow and TensorFlow Lite
+TENSORFLOW_AVAILABLE = False
+TFLITE_AVAILABLE = False
+tf = None
+tflite_interpreter = None
+
 try:
     import tensorflow as tf
     TENSORFLOW_AVAILABLE = True
+    # Check if tf.lite is available
+    if hasattr(tf, 'lite') and hasattr(tf.lite, 'Interpreter'):
+        TFLITE_AVAILABLE = True
+        tflite_interpreter = tf.lite.Interpreter
+        print("[INFO] Using tensorflow.lite.Interpreter")
+    else:
+        # Try alternative: tflite_runtime (lighter weight, for inference only)
+        try:
+            from tflite_runtime import interpreter
+            TFLITE_AVAILABLE = True
+            tflite_interpreter = interpreter.Interpreter
+            print("[INFO] Using tflite_runtime.interpreter.Interpreter")
+        except ImportError:
+            TFLITE_AVAILABLE = False
+            tflite_interpreter = None
 except ImportError:
     TENSORFLOW_AVAILABLE = False
-    tf = None
+    # Try tflite_runtime as fallback
+    try:
+        from tflite_runtime import interpreter
+        TFLITE_AVAILABLE = True
+        tflite_interpreter = interpreter.Interpreter
+        print("[INFO] Using tflite_runtime.interpreter.Interpreter (TensorFlow not installed)")
+    except ImportError:
+        TFLITE_AVAILABLE = False
+        tflite_interpreter = None
 from PIL import Image
 import io
 import base64
@@ -503,7 +532,14 @@ def load_edge_sentinel_model() -> Dict[str, Any]:
             }
         
         # Load TFLite model
-        _EDGE_SENTINEL_INTERPRETER = tf.lite.Interpreter(model_path=model_path)
+        if tflite_interpreter is None:
+            return {
+                "success": False,
+                "error": "TensorFlow Lite interpreter is not available. Please install tensorflow or tflite-runtime."
+            }
+        
+        # Use the interpreter - works for both tf.lite.Interpreter and tflite_runtime.interpreter.Interpreter
+        _EDGE_SENTINEL_INTERPRETER = tflite_interpreter(model_path=model_path)
         _EDGE_SENTINEL_INTERPRETER.allocate_tensors()
         
         # Load labels
@@ -541,10 +577,19 @@ def analyze_chart_with_edge_sentinel(image_base64: str) -> Dict[str, Any]:
     global _EDGE_SENTINEL_INTERPRETER, _EDGE_SENTINEL_LABELS
     
     try:
-        if not TENSORFLOW_AVAILABLE:
+        if not TFLITE_AVAILABLE:
+            error_msg = "TensorFlow Lite is not available. "
+            if not TENSORFLOW_AVAILABLE:
+                error_msg += "Please install TensorFlow or tflite-runtime:\n"
+                error_msg += "  pip install tensorflow\n"
+                error_msg += "  OR (lighter weight):\n"
+                error_msg += "  pip install tflite-runtime\n"
+            else:
+                error_msg += "TensorFlow is installed but TensorFlow Lite module is not available. "
+                error_msg += "Try: pip install tensorflow (full version) or pip install tflite-runtime"
             return {
                 "success": False,
-                "error": "TensorFlow is not installed. Please install it to use Edge Sentinel model."
+                "error": error_msg
             }
         
         # Ensure model is loaded
