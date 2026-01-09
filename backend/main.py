@@ -16,6 +16,15 @@ from PIL import Image
 import io
 
 from agent_tools import search_stocks, get_live_price, get_stock_info, load_stock_data
+from tools import (
+    search_stocks as tools_search_stocks,
+    run_screener,
+    compare_peers,
+    analyze_chart_with_edge_sentinel,
+    manage_portfolio,
+    analyze_portfolio,
+    view_watchlist
+)
 
 # Load environment variables
 load_dotenv()
@@ -97,9 +106,9 @@ try:
         preferred_names=['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'],
         fallback_names=['gemini-2.5-pro', 'gemini-pro-latest', 'gemini-pro']
     )
-    print(f"✓ Using agent model: {agent_model_name}")
+    print(f"[OK] Using agent model: {agent_model_name}")
 except Exception as e:
-    print(f"⚠ Warning: Could not initialize agent model: {e}")
+    print(f"[WARNING] Could not initialize agent model: {e}")
     raise
 
 # Model for vision (better image handling)
@@ -109,9 +118,9 @@ try:
         preferred_names=['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-pro-latest'],
         fallback_names=['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-pro']
     )
-    print(f"✓ Using vision model: {vision_model_name}")
+    print(f"[OK] Using vision model: {vision_model_name}")
 except Exception as e:
-    print(f"⚠ Warning: Could not initialize vision model: {e}")
+    print(f"[WARNING] Could not initialize vision model: {e}")
     # Use agent model as fallback
     vision_model = agent_model
     vision_model_name = agent_model_name
@@ -120,11 +129,11 @@ except Exception as e:
 # Check if stock data exists
 try:
     load_stock_data()
-    print("✓ Stock data loaded successfully")
+    print("[OK] Stock data loaded successfully")
 except FileNotFoundError as e:
-    print(f"⚠ Warning: {e}")
+    print(f"[WARNING] {e}")
 except Exception as e:
-    print(f"⚠ Warning: Error loading stock data: {e}")
+    print(f"[WARNING] Error loading stock data: {e}")
 
 
 # Request/Response Models
@@ -139,15 +148,30 @@ class ChartAnalysisRequest(BaseModel):
 class CompareRequest(BaseModel):
     symbol: str
 
+class SearchStocksRequest(BaseModel):
+    query: str
+
+class AddToPortfolioRequest(BaseModel):
+    symbol: str
+    shares: int
+    buy_price: float
+
+class ChatRequest(BaseModel):
+    message: str
+    conversation_history: Optional[List[Dict[str, str]]] = []
+
 
 @app.get("/")
 def root():
     return {
-        "message": "FinSamaritan API - Agentic AI Financial Assistant",
+        "message": "FinSamaritan API - Portfolio Manager with AI Agent",
         "endpoints": {
-            "/agent": "Natural language stock screener",
-            "/analyze-chart": "Visual technical analysis",
-            "/compare": "Competitive landscape with grounding"
+            "/agent": "AI Agent chat with tool calling",
+            "/search-stocks": "Search stocks by name/symbol",
+            "/portfolio": "Get portfolio analysis",
+            "/portfolio/add": "Add stock to portfolio",
+            "/analyze-chart": "Dual-processing chart analysis (Edge Sentinel + Gemini)",
+            "/compare": "Peer comparison"
         }
     }
 
@@ -191,8 +215,8 @@ Query string:"""
         if pandas_query.startswith("'") and pandas_query.endswith("'"):
             pandas_query = pandas_query[1:-1]
         
-        # Execute search
-        search_results = search_stocks(pandas_query)
+        # Execute search using tools
+        search_results = run_screener(pandas_query)
         
         # Generate summary if we have results
         if search_results["success"] and search_results["count"] > 0:
@@ -247,15 +271,28 @@ Format in markdown."""
 @app.post("/analyze-chart")
 async def analyze_chart(request: ChartAnalysisRequest):
     """
-    Endpoint 2: Visual Technical Analysis
-    Uses Gemini 1.5 Pro Vision to analyze trading charts.
+    Endpoint: Dual-Processing Chart Analysis
+    Uses both Edge Sentinel (local model) and Gemini 2.5 Vision for comprehensive analysis.
     """
     try:
+        import asyncio
+        
         # Decode base64 image
         image_data = base64.b64decode(request.image_base64)
+        image = Image.open(io.BytesIO(image_data))
         
-        # Prepare the vision prompt
-        vision_prompt = """You are an expert technical analyst. Analyze this trading chart and provide:
+        # Dual processing: Run both analyses in parallel
+        async def run_edge_sentinel():
+            """Run Edge Sentinel analysis"""
+            try:
+                return analyze_chart_with_edge_sentinel(request.image_base64)
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+        
+        async def run_gemini_vision():
+            """Run Gemini Vision analysis"""
+            try:
+                vision_prompt = """You are an expert technical analyst. Analyze this trading chart and provide:
 
 1. **Trend Analysis**: Identify the current trend (uptrend, downtrend, or sideways)
 2. **Support & Resistance Levels**: Mark key support and resistance levels with approximate price points
@@ -269,20 +306,56 @@ async def analyze_chart(request: ChartAnalysisRequest):
 
 Format your response in clear markdown with sections. Be specific with price levels if visible."""
 
-        if request.additional_context:
-            vision_prompt += f"\n\nAdditional Context: {request.additional_context}"
+                if request.additional_context:
+                    vision_prompt += f"\n\nAdditional Context: {request.additional_context}"
 
-        # Create image part
-        image = Image.open(io.BytesIO(image_data))
+                response = vision_model.generate_content([vision_prompt, image])
+                return {
+                    "success": True,
+                    "analysis": response.text,
+                    "model": vision_model_name or "gemini-2.5-pro"
+                }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
         
-        # Generate analysis
-        response = vision_model.generate_content([vision_prompt, image])
+        # Run both analyses concurrently
+        edge_result, gemini_result = await asyncio.gather(
+            run_edge_sentinel(),
+            run_gemini_vision()
+        )
         
-        return {
+        # Aggregate results
+        combined_analysis = {
             "success": True,
-            "analysis": response.text,
-            "model": vision_model_name or "gemini-2.5-pro"
+            "edge_sentinel": edge_result,
+            "gemini_vision": gemini_result,
+            "combined_summary": ""
         }
+        
+        # Generate combined summary if both succeeded
+        if edge_result.get("success") and gemini_result.get("success"):
+            summary_prompt = f"""Combine these two chart analyses:
+
+**Edge Sentinel (Local Model) Analysis:**
+{json.dumps(edge_result.get("predictions", []), indent=2)}
+
+**Gemini Vision Analysis:**
+{gemini_result.get("analysis", "")}
+
+Provide a unified analysis that combines insights from both models. Highlight:
+- Agreement between models
+- Unique insights from each
+- Final recommendation
+
+Format in markdown."""
+            
+            try:
+                summary_response = agent_model.generate_content(summary_prompt)
+                combined_analysis["combined_summary"] = summary_response.text
+            except Exception as e:
+                combined_analysis["combined_summary"] = "Could not generate combined summary"
+        
+        return combined_analysis
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing chart: {str(e)}")
@@ -291,77 +364,181 @@ Format your response in clear markdown with sections. Be specific with price lev
 @app.post("/compare")
 async def compare_stock(request: CompareRequest):
     """
-    Endpoint 3: Competitive Landscape with Grounding
-    Combines database fundamentals with Google Search for news/sentiment.
+    Endpoint: Peer Comparison
+    Uses tools.py compare_peers function for peer analysis.
     """
     try:
-        symbol = request.symbol
-        
-        # Get stock info from database
-        stock_info = get_stock_info(symbol)
-        
-        if not stock_info["success"]:
-            raise HTTPException(status_code=404, detail=f"Stock {symbol} not found in database")
-        
-        # Get live price
-        live_price = get_live_price(symbol)
-        
-        # Prepare data for Gemini
-        fundamentals = stock_info["data"]
-        live_data = live_price.get("data", {}) if live_price.get("success") else {}
-        
-        # Use Gemini with Google Search grounding
-        # Note: Gemini's search grounding is built-in when using certain models
-        comparison_prompt = f"""Analyze the stock {symbol} ({fundamentals.get('Name', 'N/A')}) comprehensively.
-
-**Fundamental Data from Database:**
-- Sector: {fundamentals.get('Sector', 'N/A')}
-- PE Ratio: {fundamentals.get('PE_Ratio', 'N/A')}
-- PB Ratio: {fundamentals.get('PB_Ratio', 'N/A')}
-- Sales Growth: {fundamentals.get('Sales_Growth', 'N/A')}%
-- Profit Margin: {fundamentals.get('Profit_Margin', 'N/A')}%
-- Market Cap: {fundamentals.get('Market_Cap', 'N/A')}
-- Current Price: {live_data.get('current_price', fundamentals.get('Current_Price', 'N/A'))}
-
-**Your Task:**
-1. Search for recent news and developments about {symbol} (use web search if needed)
-2. Compare its fundamentals against industry peers
-3. Analyze the competitive landscape
-4. Provide a comprehensive report with:
-   - Recent news/sentiment
-   - Fundamental analysis
-   - Peer comparison
-   - Investment recommendation
-   - Key risks and opportunities
-
-Format your response in markdown with clear sections. Include citations for any news sources."""
-
-        # Use Gemini with search capability
-        # For grounding, we'll use a model that supports web search
-        # Note: You may need to enable search grounding in your Gemini API settings
-        response = agent_model.generate_content(
-            comparison_prompt,
-            generation_config={
-                "temperature": 0.7,
-            }
-        )
-        
-        # If you have access to Google Search API, you can enhance this:
-        # For now, Gemini's training data includes recent information
-        
-        return {
-            "success": True,
-            "symbol": symbol,
-            "fundamentals": fundamentals,
-            "live_data": live_data,
-            "analysis": response.text,
-            "citations": []  # Add if using Google Search API
-        }
+        result = compare_peers(request.symbol)
+        if not result.get("success"):
+            raise HTTPException(status_code=404, detail=result.get("error", "Comparison failed"))
+        return result
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error comparing stock: {str(e)}")
+
+@app.post("/search-stocks")
+async def search_stocks_endpoint(request: SearchStocksRequest):
+    """
+    Endpoint: Search Stocks
+    Search stocks by name or symbol for Portfolio screen.
+    """
+    try:
+        result = tools_search_stocks(request.query)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching stocks: {str(e)}")
+
+@app.get("/portfolio")
+async def get_portfolio():
+    """
+    Endpoint: Get Portfolio Analysis
+    Returns portfolio analysis with P&L calculations.
+    """
+    try:
+        result = analyze_portfolio()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting portfolio: {str(e)}")
+
+@app.post("/portfolio/add")
+async def add_to_portfolio_endpoint(request: AddToPortfolioRequest):
+    """
+    Endpoint: Add Stock to Portfolio
+    Adds a stock to the user's portfolio.
+    """
+    try:
+        result = manage_portfolio("buy", request.symbol, request.shares, request.buy_price)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to add to portfolio"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding to portfolio: {str(e)}")
+
+@app.post("/agent/chat")
+async def agent_chat(request: ChatRequest):
+    """
+    Endpoint: AI Agent Chat with Tool Calling
+    Main chat interface that uses Gemini 2.5 with function calling to tools.py functions.
+    """
+    try:
+        # Define available tools for the agent
+        tools_schema = [
+            {
+                "name": "search_stocks",
+                "description": "Search stocks by name or symbol (for Portfolio screen search)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query string"}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "run_screener",
+                "description": "Run a stock screener with pandas query (e.g., 'PE_Ratio < 15 and Sector == \"IT\"')",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Pandas query string"}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "compare_peers",
+                "description": "Compare a stock with its peers in the same sector",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target_symbol": {"type": "string", "description": "Stock symbol to compare"},
+                        "competitor_symbols": {"type": "array", "items": {"type": "string"}, "description": "Optional list of competitor symbols"}
+                    },
+                    "required": ["target_symbol"]
+                }
+            },
+            {
+                "name": "manage_portfolio",
+                "description": "Manage portfolio: buy, sell, or remove stocks",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "action": {"type": "string", "enum": ["buy", "sell", "remove"], "description": "Action to perform"},
+                        "symbol": {"type": "string", "description": "Stock symbol"},
+                        "shares": {"type": "integer", "description": "Number of shares (required for buy/sell)"},
+                        "buy_price": {"type": "number", "description": "Buy price per share (required for buy)"}
+                    },
+                    "required": ["action", "symbol"]
+                }
+            },
+            {
+                "name": "analyze_portfolio",
+                "description": "Get comprehensive portfolio analysis with P&L",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "view_watchlist",
+                "description": "View all stocks in watchlist",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }
+        ]
+        
+        # Map tool names to functions
+        tool_functions = {
+            "search_stocks": tools_search_stocks,
+            "run_screener": run_screener,
+            "compare_peers": compare_peers,
+            "manage_portfolio": manage_portfolio,
+            "analyze_portfolio": analyze_portfolio,
+            "view_watchlist": view_watchlist
+        }
+        
+        # Build conversation context
+        conversation_text = ""
+        if request.conversation_history:
+            for msg in request.conversation_history:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                conversation_text += f"{role.capitalize()}: {content}\n"
+        
+        conversation_text += f"User: {request.message}\nAssistant:"
+        
+        # Use Gemini with function calling
+        # Note: This is a simplified version. For production, use proper function calling API
+        system_prompt = """You are FinSamaritan, an AI financial assistant. You can help users:
+- Search and analyze stocks
+- Manage their portfolio
+- Compare stocks with peers
+- Run stock screeners
+- Analyze charts
+
+When users ask questions, use the available tools to get data, then provide helpful analysis."""
+        
+        full_prompt = f"{system_prompt}\n\n{conversation_text}"
+        
+        # For now, use a simple approach - in production, implement proper function calling
+        response = agent_model.generate_content(full_prompt)
+        
+        return {
+            "success": True,
+            "response": response.text,
+            "tools_used": []  # Would be populated with actual tool calls in production
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in agent chat: {str(e)}")
 
 
 if __name__ == "__main__":

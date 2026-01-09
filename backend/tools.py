@@ -1,6 +1,6 @@
 """
 Agent Tools module for FinSamaritan
-7 specialized tools that the Manager Agent (Gemini) can use
+AI-compatible tools for the Manager Agent (Gemini) to use
 """
 import database
 from data_engine import data_engine
@@ -8,6 +8,16 @@ from typing import Dict, List, Optional, Any
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import os
+try:
+    import tensorflow as tf
+    TENSORFLOW_AVAILABLE = True
+except ImportError:
+    TENSORFLOW_AVAILABLE = False
+    tf = None
+from PIL import Image
+import io
+import base64
 
 def manage_portfolio(action: str, symbol: str, shares: Optional[int] = None, buy_price: Optional[float] = None) -> Dict[str, Any]:
     """
@@ -137,11 +147,37 @@ def analyze_portfolio() -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def search_stocks(query: str) -> Dict[str, Any]:
+    """
+    Tool: Search Stocks
+    Searches stocks by name or symbol (case-insensitive partial match)
+    Used by Portfolio screen for stock search functionality
+    
+    Args:
+        query: Search query string (e.g., "RELIANCE", "TCS", "Bank")
+    
+    Returns:
+        Dictionary with search results
+    """
+    try:
+        results = data_engine.search_stocks_by_name(query, limit=20)
+        
+        return {
+            "success": True,
+            "count": len(results),
+            "query": query,
+            "stocks": results
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e), "count": 0, "stocks": []}
+
 def run_screener(query: str) -> Dict[str, Any]:
     """
     Tool: Run Screener
-    Executes pandas query on cached stock data
-    Example: "pe_ratio < 15", "current_price > 1000"
+    Executes pandas query on cached stock data from CSV
+    Example: "PE_Ratio < 15", "Current_Price > 1000", "Sector == 'IT'"
+    
+    Note: Column names must match CSV column names (uppercase with underscores)
     """
     try:
         df = data_engine.get_all_cached()
@@ -162,8 +198,18 @@ def run_screener(query: str) -> Dict[str, Any]:
                 "stocks": []
             }
         
-        # Format results
-        results = filtered_df[["symbol", "name", "current_price", "pe_ratio", "sector"]].to_dict('records')
+        # Format results - use CSV column names
+        result_columns = ["Symbol", "Name", "Current_Price", "PE_Ratio", "Sector"]
+        available_columns = [col for col in result_columns if col in filtered_df.columns]
+        results_df = filtered_df[available_columns]
+        
+        # Convert to list of dictionaries and clean NaN values
+        results = []
+        for _, row in results_df.iterrows():
+            stock_dict = row.to_dict()
+            clean_dict = {k: (None if (isinstance(v, float) and np.isnan(v)) else v) 
+                         for k, v in stock_dict.items()}
+            results.append(clean_dict)
         
         return {
             "success": True,
@@ -272,8 +318,15 @@ def simulate_strategy(symbol: str, strategy_type: str = "SMA_CROSSOVER", period:
 
 def compare_peers(target_symbol: str, competitor_symbols: Optional[List[str]] = None) -> Dict[str, Any]:
     """
-    Tool: Compare Peers
-    Compares fundamental metrics of target vs competitors
+    Tool: Compare Peers (Peer Comparison Screen Logic)
+    Compares fundamental metrics of target vs competitors from CSV database
+    
+    Args:
+        target_symbol: Stock symbol to compare
+        competitor_symbols: Optional list of competitor symbols. If None, finds peers in same sector.
+    
+    Returns:
+        Dictionary with comparison data
     """
     try:
         target_data = data_engine.get_stock_data(target_symbol)
@@ -284,8 +337,10 @@ def compare_peers(target_symbol: str, competitor_symbols: Optional[List[str]] = 
         if not competitor_symbols:
             df = data_engine.get_all_cached()
             sector = target_data.get("sector", "Unknown")
-            peers = df[df["sector"] == sector]["symbol"].tolist()
-            competitor_symbols = [p for p in peers if p != target_symbol][:4]  # Top 4 peers
+            # Match sector column (uppercase in CSV)
+            peers_df = df[df["Sector"] == sector]
+            peers = peers_df["Symbol"].tolist()
+            competitor_symbols = [p for p in peers if p.upper() != target_symbol.upper()][:4]  # Top 4 peers
         
         competitors_data = []
         for symbol in competitor_symbols:
@@ -300,7 +355,7 @@ def compare_peers(target_symbol: str, competitor_symbols: Optional[List[str]] = 
                 "current_price": target_data["current_price"],
                 "pe_ratio": target_data["pe_ratio"],
                 "market_cap": target_data["market_cap"],
-                "beta": target_data["beta"],
+                "beta": target_data.get("beta"),
                 "sector": target_data["sector"]
             },
             "competitors": [
@@ -310,7 +365,7 @@ def compare_peers(target_symbol: str, competitor_symbols: Optional[List[str]] = 
                     "current_price": c["current_price"],
                     "pe_ratio": c["pe_ratio"],
                     "market_cap": c["market_cap"],
-                    "beta": c["beta"]
+                    "beta": c.get("beta")
                 }
                 for c in competitors_data
             ]
@@ -401,4 +456,152 @@ def view_watchlist() -> Dict[str, Any]:
     
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+# Edge Sentinel Model Loader and Chart Analysis
+_EDGE_SENTINEL_INTERPRETER = None
+_EDGE_SENTINEL_LABELS = None
+
+def load_edge_sentinel_model() -> Dict[str, Any]:
+    """
+    Tool: Load Edge Sentinel Model
+    Loads the trained Edge Sentinel model from model_training directory
+    
+    Returns:
+        Dictionary with model status
+    """
+    global _EDGE_SENTINEL_INTERPRETER, _EDGE_SENTINEL_LABELS
+    
+    try:
+        if _EDGE_SENTINEL_INTERPRETER is not None:
+            return {
+                "success": True,
+                "message": "Edge Sentinel model already loaded",
+                "model_path": "model_training/models/model_unquant.tflite"
+            }
+        
+        # Path to model files
+        model_dir = os.path.join(os.path.dirname(__file__), '..', 'model_training', 'models')
+        model_path = os.path.join(model_dir, 'model_unquant.tflite')
+        labels_path = os.path.join(model_dir, 'labels.txt')
+        
+        if not TENSORFLOW_AVAILABLE:
+            return {
+                "success": False,
+                "error": "TensorFlow is not installed. Please install it to use Edge Sentinel model."
+            }
+        
+        if not os.path.exists(model_path):
+            return {
+                "success": False,
+                "error": f"Model file not found at {model_path}"
+            }
+        
+        if not os.path.exists(labels_path):
+            return {
+                "success": False,
+                "error": f"Labels file not found at {labels_path}"
+            }
+        
+        # Load TFLite model
+        _EDGE_SENTINEL_INTERPRETER = tf.lite.Interpreter(model_path=model_path)
+        _EDGE_SENTINEL_INTERPRETER.allocate_tensors()
+        
+        # Load labels
+        _EDGE_SENTINEL_LABELS = []
+        with open(labels_path, 'r') as f:
+            for line in f:
+                parts = line.strip().split(' ', 1)
+                if len(parts) == 2:
+                    _EDGE_SENTINEL_LABELS.append(parts[1])
+        
+        return {
+            "success": True,
+            "message": f"Edge Sentinel model loaded successfully with {len(_EDGE_SENTINEL_LABELS)} classes",
+            "model_path": model_path,
+            "num_classes": len(_EDGE_SENTINEL_LABELS)
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to load Edge Sentinel model: {str(e)}"
+        }
+
+def analyze_chart_with_edge_sentinel(image_base64: str) -> Dict[str, Any]:
+    """
+    Tool: Analyze Chart with Edge Sentinel (Chart Doctor Screen Logic)
+    Uses the local Edge Sentinel model to analyze a chart image
+    
+    Args:
+        image_base64: Base64 encoded image string
+    
+    Returns:
+        Dictionary with Edge Sentinel analysis results
+    """
+    global _EDGE_SENTINEL_INTERPRETER, _EDGE_SENTINEL_LABELS
+    
+    try:
+        if not TENSORFLOW_AVAILABLE:
+            return {
+                "success": False,
+                "error": "TensorFlow is not installed. Please install it to use Edge Sentinel model."
+            }
+        
+        # Ensure model is loaded
+        if _EDGE_SENTINEL_INTERPRETER is None:
+            load_result = load_edge_sentinel_model()
+            if not load_result.get("success"):
+                return load_result
+        
+        # Decode image
+        image_data = base64.b64decode(image_base64)
+        image = Image.open(io.BytesIO(image_data)).convert('RGB')
+        
+        # Preprocess image
+        img_size = 224
+        image = image.resize((img_size, img_size))
+        img_array = np.array(image, dtype=np.float32) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
+        
+        # Run inference
+        input_details = _EDGE_SENTINEL_INTERPRETER.get_input_details()
+        output_details = _EDGE_SENTINEL_INTERPRETER.get_output_details()
+        
+        _EDGE_SENTINEL_INTERPRETER.set_tensor(input_details[0]['index'], img_array)
+        _EDGE_SENTINEL_INTERPRETER.invoke()
+        
+        output = _EDGE_SENTINEL_INTERPRETER.get_tensor(output_details[0]['index'])[0]
+        
+        # Get top 3 predictions
+        top_k = 3
+        top_indices = np.argsort(output)[-top_k:][::-1]
+        
+        predictions = []
+        for idx in top_indices:
+            class_name = _EDGE_SENTINEL_LABELS[idx]
+            confidence = float(output[idx])
+            # Parse pattern and trend from class name (e.g., "hammer_uptrend")
+            parts = class_name.split('_', 1)
+            pattern = parts[0] if len(parts) > 0 else class_name
+            trend = parts[1] if len(parts) > 1 else "unknown"
+            
+            predictions.append({
+                "pattern": pattern,
+                "trend": trend,
+                "confidence": confidence,
+                "class_name": class_name
+            })
+        
+        return {
+            "success": True,
+            "model": "Edge Sentinel",
+            "predictions": predictions,
+            "top_prediction": predictions[0] if predictions else None
+        }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Edge Sentinel analysis failed: {str(e)}"
+        }
 

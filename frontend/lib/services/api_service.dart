@@ -28,8 +28,8 @@ class ApiService {
     return 'http://localhost:8000';
   }
 
-  // Agent Screener endpoint
-  static Future<Map<String, dynamic>> searchStocks({
+  // Agent Screener endpoint (legacy - uses AI agent)
+  static Future<Map<String, dynamic>> agentSearchStocks({
     required String query,
     bool showReasoning = true,
   }) async {
@@ -98,6 +98,99 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error comparing stock: $e');
+    }
+  }
+
+  // Search Stocks endpoint (for Portfolio screen)
+  static Future<Map<String, dynamic>> searchStocks({
+    required String query,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${getBaseUrl()}/search-stocks'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'query': query,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to search stocks: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error searching stocks: $e');
+    }
+  }
+
+  // Get Portfolio endpoint
+  static Future<Map<String, dynamic>> getPortfolio() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${getBaseUrl()}/portfolio'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get portfolio: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error getting portfolio: $e');
+    }
+  }
+
+  // Add to Portfolio endpoint
+  static Future<Map<String, dynamic>> addToPortfolio({
+    required String symbol,
+    required int shares,
+    required double buyPrice,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${getBaseUrl()}/portfolio/add'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'symbol': symbol,
+          'shares': shares,
+          'buy_price': buyPrice,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to add to portfolio: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error adding to portfolio: $e');
+    }
+  }
+
+  // Agent Chat endpoint
+  static Future<Map<String, dynamic>> agentChat({
+    required String message,
+    List<Map<String, String>>? conversationHistory,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${getBaseUrl()}/agent/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'message': message,
+          'conversation_history': conversationHistory ?? [],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to chat with agent: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error chatting with agent: $e');
     }
   }
 }

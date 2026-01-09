@@ -4,6 +4,16 @@
 
 This guide will walk you through setting up and running FinSamaritan on **Google Chrome (Web)**, **Windows Desktop**, and **Android**.
 
+## 🆕 What's New
+
+FinSamaritan has been refactored into a **Portfolio Manager** with an **AI Agent overlay**:
+
+- **Portfolio Screen**: Main dashboard for managing your stock portfolio
+- **AI Chat Assistant**: Global chat overlay accessible from anywhere (floating button)
+- **Chart Analysis**: Dual-processing with Edge Sentinel (local model) + Gemini Vision
+- **Stock Search**: Search stocks from CSV database and add to portfolio
+- **Portfolio Analytics**: Real-time P&L calculations and performance tracking
+
 ---
 
 ## 📋 Prerequisites
@@ -22,11 +32,7 @@ Before starting, make sure you have:
    - Get it from: https://makersuite.google.com/app/apikey
    - Sign in with Google account and create a new API key
 
-4. **TensorFlow** (for Edge Sentinel model - optional but recommended)
-   - Will be installed with backend dependencies
-   - Required for dual-processing chart analysis
-
-5. **Node.js** (optional, for some Flutter tools)
+4. **Node.js** (optional, for some Flutter tools)
 
 ---
 
@@ -36,7 +42,9 @@ The backend must be running for the app to work on any platform.
 
 ### Step 1: Navigate to Backend Directory
 ```powershell
-cd C:\Users\124sa\FinSamaritan\backend
+cd path\to\FinSamaritan\backend
+# Replace with your actual path, e.g.:
+# cd C:\Users\YourName\FinSamaritan\backend
 ```
 
 ### Step 2: Set Up Python Virtual Environment
@@ -65,8 +73,6 @@ pip install -r requirements.txt
 ..\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-**Note:** This will install TensorFlow for Edge Sentinel model support. If you encounter issues, you can skip TensorFlow and use Gemini Vision only for chart analysis.
-
 ### Step 4: Create .env File
 Create a file named `.env` in the `backend` directory:
 
@@ -77,7 +83,20 @@ GEMINI_API_KEY=your_actual_api_key_here
 
 Replace `your_actual_api_key_here` with your actual Gemini API key.
 
-### Step 5: Generate Stock Data (If Not Already Done)
+### Step 5: Install TensorFlow (Optional - For Edge Sentinel Model)
+If you want to use the local Edge Sentinel model for chart analysis:
+
+```powershell
+# If virtual environment is activated:
+pip install tensorflow
+
+# OR using Python directly:
+..\.venv\Scripts\python.exe -m pip install tensorflow
+```
+
+**Note:** TensorFlow is optional. Chart analysis will still work with Gemini Vision even without it.
+
+### Step 6: Generate Stock Data (If Not Already Done)
 ```powershell
 # If virtual environment is activated:
 python stock_data_generator.py
@@ -88,7 +107,9 @@ python stock_data_generator.py
 
 This will create `stock_data.csv` (may take a few minutes to fetch all stock data).
 
-### Step 6: Start the Backend Server
+**Important:** All stock data must come from this CSV file. The app does not fetch live data from external APIs for stock fundamentals.
+
+### Step 7: Start the Backend Server
 ```powershell
 # If virtual environment is activated:
 python main.py
@@ -99,20 +120,26 @@ python main.py
 
 You should see:
 ```
+✓ Using agent model: gemini-2.5-flash
+✓ Using vision model: gemini-2.5-pro
 ✓ Stock data loaded successfully
-✓ Edge Sentinel model loaded successfully  (if TensorFlow is installed)
 INFO:     Uvicorn running on http://0.0.0.0:8000
 INFO:     Application startup complete.
 ```
-
-**Note:** If you see a warning about Edge Sentinel model, that's okay - chart analysis will use Gemini Vision only.
 
 **⚠️ Keep this terminal window open!** The backend must stay running.
 
 **Test the backend:**
 - Open browser: http://localhost:8000
-- You should see: `{"message":"FinSamaritan API - Agentic AI Financial Assistant",...}`
+- You should see: `{"message":"FinSamaritan API - Portfolio Manager with AI Agent",...}`
 - API docs: http://localhost:8000/docs
+
+**New API Endpoints:**
+- `/search-stocks` - Search stocks by name/symbol
+- `/portfolio` - Get portfolio analysis
+- `/portfolio/add` - Add stock to portfolio
+- `/agent/chat` - AI agent chat with tool calling
+- `/analyze-chart` - Dual-processing chart analysis (Edge Sentinel + Gemini)
 
 ---
 
@@ -122,7 +149,9 @@ INFO:     Application startup complete.
 Open a **NEW** PowerShell/Command Prompt window (keep backend running):
 
 ```powershell
-cd C:\Users\124sa\FinSamaritan\frontend
+cd path\to\FinSamaritan\frontend
+# Replace with your actual path, e.g.:
+# cd C:\Users\YourName\FinSamaritan\frontend
 ```
 
 ### Step 2: Verify Flutter is Working
@@ -169,30 +198,28 @@ flutter run
 
 The app will open in Chrome automatically. You'll see:
 
-1. **Portfolio Tab** (Portfolio icon) - **Main Screen**
-   - **Search Bar**: Search stocks by name or symbol in the CSV database
-   - **Add to Portfolio**: Click the "+" button on any search result to add stocks
-   - **Portfolio Display**: View your holdings with:
-     - Current value and P&L tracking
-     - Risk indicators
-     - Buy price vs current price
+1. **Portfolio Tab** (Portfolio icon) - **Main Dashboard**
+   - **Search Bar**: Search stocks by name or symbol from CSV database
+   - **Add to Portfolio**: Click "Add" on any search result to add stocks
+   - **Portfolio Summary**: View total invested, current value, and P&L
+   - **Holdings List**: See all your stocks with real-time performance
 
 2. **Chart Analysis Tab** (Chart icon)
    - Click "Gallery" to upload a chart image
    - Click "Camera" to take a photo (if available)
    - Click "Analyze Chart" for **dual-processing analysis**:
-     - Edge Sentinel (local model) for pattern recognition
-     - Gemini Vision for technical analysis
-     - Combined comprehensive report
+     - **Edge Sentinel** (local model): Pattern and trend detection
+     - **Gemini Vision**: Detailed technical analysis
+     - **Combined Summary**: Unified insights from both models
 
-3. **AI Chat Overlay** (Floating button - bottom right)
-   - Click the chat icon to open AI assistant
+3. **AI Chat Assistant** (Floating button - Chat icon)
+   - Click the floating chat button (bottom-right) to open AI assistant
    - Ask questions like:
-     - "Search for IT stocks"
-     - "Compare RELIANCE with its peers"
-     - "Show me my portfolio analysis"
-     - "Find undervalued banking stocks"
-   - The AI agent will use tools automatically to help you
+     - "Compare RELIANCE and TCS"
+     - "Show me undervalued IT stocks"
+     - "Analyze my portfolio"
+     - "What's the PE ratio of HDFCBANK?"
+   - The AI agent uses tools to fetch data and provide insights
 
 ### Troubleshooting Chrome
 
@@ -217,7 +244,8 @@ flutter config --enable-windows-desktop
 
 ### Step 2: Navigate to Frontend Directory
 ```powershell
-cd C:\Users\124sa\FinSamaritan\frontend
+cd path\to\FinSamaritan\frontend
+# Replace with your actual path
 ```
 
 ### Step 3: Install Dependencies
@@ -239,8 +267,9 @@ flutter run
 ### Step 5: Using the Windows App
 
 The app will open as a desktop window. Usage is the same as Chrome:
-- Three tabs at the bottom
-- Same features: Screener, Chart Doctor, Compare
+- Two tabs at the bottom: Portfolio and Chart Analysis
+- Floating chat button for AI assistant
+- Same features: Portfolio management, Chart analysis, AI chat
 - Backend must be running on localhost:8000
 
 ### Troubleshooting Windows
@@ -308,7 +337,8 @@ flutter --version
 
 ### Step 4: Navigate to Frontend Directory
 ```powershell
-cd C:\Users\124sa\FinSamaritan\frontend
+cd path\to\FinSamaritan\frontend
+# Replace with your actual path
 ```
 
 ### Step 5: Install Dependencies
@@ -396,10 +426,12 @@ You need to update the API URL to use your computer's IP address:
 ### Step 7: Using the Android App
 
 Once the app installs and opens on your Android device:
-- Three tabs at the bottom: Screener, Chart Doctor, Compare
+- Two tabs at the bottom: Portfolio and Chart Analysis
+- Floating chat button for AI assistant
 - Same features as web/desktop
-- Camera access works for Chart Doctor
+- Camera access works for Chart Analysis
 - Gallery access works for uploading charts
+- Search stocks and manage portfolio on the go
 
 ### Troubleshooting Android
 
@@ -435,23 +467,32 @@ flutter run -d <device-id>
 
 ## 🎯 Quick Test Guide
 
-Test all three features on any platform:
+Test all features on any platform:
 
-### 1. Smart Screener Test
-- Go to Screener tab
-- Click demo button: "Show me undervalued IT stocks"
-- Should show reasoning trace, summary, and stock cards
+### 1. Portfolio Management Test
+- Go to Portfolio tab (home screen)
+- Search for a stock (e.g., "RELIANCE" or "TCS")
+- Click "Add" on a search result
+- Enter shares and buy price
+- View your portfolio with P&L calculations
 
-### 2. Chart Doctor Test
-- Go to Chart Doctor tab
-- Click "Gallery" → Select any image (or a stock chart image)
+### 2. Chart Analysis Test (Dual-Processing)
+- Go to Chart Analysis tab
+- Click "Gallery" → Select a stock chart image
 - Click "Analyze Chart"
-- Should show technical analysis in markdown
+- Should show:
+  - **Edge Sentinel Analysis**: Pattern and trend with confidence scores
+  - **Gemini Vision Analysis**: Detailed technical analysis
+  - **Combined Summary**: Unified insights from both models
 
-### 3. Compare Test
-- Go to Compare tab
-- Click demo button: "RELIANCE"
-- Should show fundamentals table and comprehensive analysis
+### 3. AI Chat Assistant Test
+- Click the floating chat button (bottom-right)
+- Try these queries:
+  - "Search for IT stocks"
+  - "Compare RELIANCE with TCS"
+  - "What's in my portfolio?"
+  - "Show me stocks with PE ratio less than 15"
+- The AI should respond with relevant data and insights
 
 ---
 
@@ -476,6 +517,12 @@ taskkill /PID <PID> /F
 **"stock_data.csv not found"**
 - Run: `python stock_data_generator.py` in backend folder
 - Wait for it to complete (downloads 500+ stocks)
+- **Important**: All stock data comes from this CSV file
+
+**"TensorFlow is not installed" (for Edge Sentinel)**
+- This is optional - chart analysis still works with Gemini Vision
+- To enable Edge Sentinel: `pip install tensorflow`
+- The app will gracefully handle missing TensorFlow
 
 ### Frontend Issues
 
@@ -502,10 +549,12 @@ taskkill /PID <PID> /F
 - [ ] Python installed
 - [ ] Virtual environment created
 - [ ] Dependencies installed (`pip install -r requirements.txt`)
+- [ ] TensorFlow installed (optional, for Edge Sentinel model)
 - [ ] `.env` file created with Gemini API key
 - [ ] Stock data generated (`stock_data_generator.py`)
 - [ ] Backend running on http://localhost:8000
 - [ ] Tested in browser: http://localhost:8000/docs
+- [ ] Verified new endpoints are working
 
 ### Chrome (Web)
 - [ ] Flutter SDK installed
@@ -513,14 +562,18 @@ taskkill /PID <PID> /F
 - [ ] `flutter pub get` completed
 - [ ] `flutter run -d chrome` working
 - [ ] App opens in Chrome
-- [ ] All three features tested
+- [ ] Portfolio search and add tested
+- [ ] Chart analysis (dual-processing) tested
+- [ ] AI chat assistant tested
 
 ### Windows Desktop
 - [ ] Windows desktop support enabled
 - [ ] Visual Studio Build Tools installed (if needed)
 - [ ] `flutter run -d windows` working
 - [ ] Desktop app opens
-- [ ] All three features tested
+- [ ] Portfolio management tested
+- [ ] Chart analysis tested
+- [ ] AI chat assistant tested
 
 ### Android
 - [ ] Android Studio installed
@@ -530,7 +583,9 @@ taskkill /PID <PID> /F
 - [ ] API URL updated for physical device (if needed)
 - [ ] `flutter run -d <device-id>` working
 - [ ] App installed and opens
-- [ ] All three features tested
+- [ ] Portfolio management tested
+- [ ] Chart analysis tested
+- [ ] AI chat assistant tested
 
 ---
 
@@ -538,11 +593,33 @@ taskkill /PID <PID> /F
 
 Once you have the backend running and the frontend app open on your chosen platform, you can start using FinSamaritan!
 
+## 📚 Key Features
+
+### Portfolio Manager
+- **Search Stocks**: Query the CSV database by name or symbol
+- **Add Holdings**: Add stocks with shares and buy price
+- **Real-time P&L**: Automatic calculation of profit/loss
+- **Portfolio Analytics**: Track total invested, current value, and performance
+
+### AI Agent Chat
+- **Natural Language Queries**: Ask questions in plain English
+- **Tool Integration**: AI uses backend tools to fetch data
+- **Contextual Responses**: Understands portfolio and stock context
+- **Always Accessible**: Floating button available from any screen
+
+### Chart Analysis
+- **Dual-Processing**: 
+  - Edge Sentinel (local model) for pattern recognition
+  - Gemini Vision for detailed technical analysis
+- **Combined Insights**: Unified analysis from both models
+- **Image Upload**: Gallery or camera support
+
 **Remember:**
 - Backend must stay running in a terminal window
 - Backend runs on http://localhost:8000
 - Each platform (Chrome/Windows/Android) connects to the same backend
-- All features work the same across platforms
+- All stock data comes from `stock_data.csv` (no external API calls for fundamentals)
+- TensorFlow is optional (chart analysis works with Gemini Vision alone)
 
-Happy trading analysis! 📈
+Happy portfolio management! 📈💰
 

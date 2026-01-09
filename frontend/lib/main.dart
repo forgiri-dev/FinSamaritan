@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/screener_screen.dart';
+import 'screens/portfolio_screen.dart';
 import 'screens/chart_analysis_screen.dart';
-import 'screens/compare_screen.dart';
+import 'widgets/chat_overlay.dart';
 
 void main() {
   runApp(const FinSamaritanApp());
@@ -13,7 +13,7 @@ class FinSamaritanApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FinSamaritan - Agentic AI Financial Assistant',
+      title: 'FinSamaritan - Portfolio Manager with AI Agent',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
@@ -34,17 +34,35 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _showChatOverlay = false;
 
   final List<Widget> _screens = [
-    const ScreenerScreen(),
+    const PortfolioScreen(),
     const ChartAnalysisScreen(),
-    const CompareScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: Stack(
+        children: [
+          // Main content
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
+          ),
+          
+          // Chat Overlay
+          if (_showChatOverlay)
+            ChatOverlay(
+              onClose: () {
+                setState(() {
+                  _showChatOverlay = false;
+                });
+              },
+            ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -54,19 +72,24 @@ class _MainScreenState extends State<MainScreen> {
         },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Screener',
+            icon: Icon(Icons.account_balance),
+            label: 'Portfolio',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.show_chart),
-            label: 'Chart Doctor',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.compare_arrows),
-            label: 'Compare',
+            label: 'Chart Analysis',
           ),
         ],
         type: BottomNavigationBarType.fixed,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            _showChatOverlay = true;
+          });
+        },
+        child: const Icon(Icons.chat),
+        tooltip: 'AI Assistant',
       ),
     );
   }

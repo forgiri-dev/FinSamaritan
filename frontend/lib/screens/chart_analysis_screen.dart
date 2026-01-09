@@ -1,8 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/api_service.dart';
 
 class ChartAnalysisScreen extends StatefulWidget {
@@ -14,7 +15,8 @@ class ChartAnalysisScreen extends StatefulWidget {
 
 class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
   final ImagePicker _picker = ImagePicker();
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImagePath;
   bool _isLoading = false;
   String? _analysis;
   String? _error;
@@ -27,8 +29,10 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
       );
 
       if (image != null) {
+        final imageBytes = await image.readAsBytes();
         setState(() {
-          _selectedImage = File(image.path);
+          _selectedImageBytes = imageBytes;
+          _selectedImagePath = image.path;
           _analysis = null;
           _error = null;
         });
@@ -48,8 +52,10 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
       );
 
       if (image != null) {
+        final imageBytes = await image.readAsBytes();
         setState(() {
-          _selectedImage = File(image.path);
+          _selectedImageBytes = imageBytes;
+          _selectedImagePath = image.path;
           _analysis = null;
           _error = null;
         });
@@ -62,7 +68,7 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
   }
 
   Future<void> _analyzeChart() async {
-    if (_selectedImage == null) {
+    if (_selectedImageBytes == null) {
       setState(() {
         _error = 'Please select an image first';
       });
@@ -76,16 +82,40 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
     });
 
     try {
-      // Read image and convert to base64
-      final imageBytes = await _selectedImage!.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
+      // Convert image bytes to base64
+      final base64Image = base64Encode(_selectedImageBytes!);
 
       final result = await ApiService.analyzeChart(
         imageBase64: base64Image,
       );
 
+      // Build combined analysis from dual-processing results
+      String combinedAnalysis = '';
+      
+      if (result['edge_sentinel'] != null && result['edge_sentinel']['success'] == true) {
+        final edgeResult = result['edge_sentinel'];
+        final topPred = edgeResult['top_prediction'];
+        if (topPred != null) {
+          combinedAnalysis += '## Edge Sentinel Analysis (Local Model)\n\n';
+          combinedAnalysis += '**Pattern:** ${topPred['pattern']}\n';
+          combinedAnalysis += '**Trend:** ${topPred['trend']}\n';
+          combinedAnalysis += '**Confidence:** ${(topPred['confidence'] * 100).toStringAsFixed(1)}%\n\n';
+        }
+      }
+      
+      if (result['gemini_vision'] != null && result['gemini_vision']['success'] == true) {
+        combinedAnalysis += '## Gemini Vision Analysis\n\n';
+        combinedAnalysis += result['gemini_vision']['analysis'] ?? '';
+        combinedAnalysis += '\n\n';
+      }
+      
+      if (result['combined_summary'] != null && result['combined_summary'].toString().isNotEmpty) {
+        combinedAnalysis += '## Combined Analysis\n\n';
+        combinedAnalysis += result['combined_summary'];
+      }
+
       setState(() {
-        _analysis = result['analysis'] as String?;
+        _analysis = combinedAnalysis.isNotEmpty ? combinedAnalysis : 'Analysis completed';
         _isLoading = false;
       });
     } catch (e) {
@@ -100,7 +130,7 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chart Doctor'),
+        title: const Text('Chart Analysis'),
         backgroundColor: Colors.purple.shade700,
         foregroundColor: Colors.white,
       ),
@@ -155,16 +185,22 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
             const SizedBox(height: 16),
 
             // Selected Image Display
-            if (_selectedImage != null) ...[
+            if (_selectedImageBytes != null) ...[
               Card(
                 elevation: 2,
                 child: Column(
                   children: [
-                    Image.file(
-                      _selectedImage!,
-                      fit: BoxFit.contain,
-                      height: 300,
-                    ),
+                    kIsWeb
+                        ? Image.memory(
+                            _selectedImageBytes!,
+                            fit: BoxFit.contain,
+                            height: 300,
+                          )
+                        : Image.memory(
+                            _selectedImageBytes!,
+                            fit: BoxFit.contain,
+                            height: 300,
+                          ),
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: ElevatedButton(
@@ -247,7 +283,7 @@ class _ChartAnalysisScreenState extends State<ChartAnalysisScreen> {
             ],
 
             // Empty State
-            if (_selectedImage == null && _analysis == null && _error == null)
+            if (_selectedImageBytes == null && _analysis == null && _error == null)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(48),
