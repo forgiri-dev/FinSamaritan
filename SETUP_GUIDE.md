@@ -1,5 +1,7 @@
 # FinSamaritan - Complete Setup & Usage Guide
 
+**Portfolio Manager with AI Agent Overlay**
+
 This guide will walk you through setting up and running FinSamaritan on **Google Chrome (Web)**, **Windows Desktop**, and **Android**.
 
 ---
@@ -20,7 +22,11 @@ Before starting, make sure you have:
    - Get it from: https://makersuite.google.com/app/apikey
    - Sign in with Google account and create a new API key
 
-4. **Node.js** (optional, for some Flutter tools)
+4. **TensorFlow** (for Edge Sentinel model - optional but recommended)
+   - Will be installed with backend dependencies
+   - Required for dual-processing chart analysis
+
+5. **Node.js** (optional, for some Flutter tools)
 
 ---
 
@@ -59,6 +65,8 @@ pip install -r requirements.txt
 ..\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
+**Note:** This will install TensorFlow for Edge Sentinel model support. If you encounter issues, you can skip TensorFlow and use Gemini Vision only for chart analysis.
+
 ### Step 4: Create .env File
 Create a file named `.env` in the `backend` directory:
 
@@ -92,9 +100,12 @@ python main.py
 You should see:
 ```
 ✓ Stock data loaded successfully
+✓ Edge Sentinel model loaded successfully  (if TensorFlow is installed)
 INFO:     Uvicorn running on http://0.0.0.0:8000
 INFO:     Application startup complete.
 ```
+
+**Note:** If you see a warning about Edge Sentinel model, that's okay - chart analysis will use Gemini Vision only.
 
 **⚠️ Keep this terminal window open!** The backend must stay running.
 
@@ -156,22 +167,32 @@ flutter run
 
 ### Step 5: Using the App in Chrome
 
-The app will open in Chrome automatically. You'll see three tabs:
+The app will open in Chrome automatically. You'll see:
 
-1. **Smart Screener Tab** (Search icon)
-   - Enter queries like: "Show me undervalued IT stocks"
-   - Click demo query buttons for quick tests
-   - View reasoning trace and results
+1. **Portfolio Tab** (Portfolio icon) - **Main Screen**
+   - **Search Bar**: Search stocks by name or symbol in the CSV database
+   - **Add to Portfolio**: Click the "+" button on any search result to add stocks
+   - **Portfolio Display**: View your holdings with:
+     - Current value and P&L tracking
+     - Risk indicators
+     - Buy price vs current price
 
-2. **Chart Doctor Tab** (Chart icon)
+2. **Chart Analysis Tab** (Chart icon)
    - Click "Gallery" to upload a chart image
    - Click "Camera" to take a photo (if available)
-   - Click "Analyze Chart" to get AI analysis
+   - Click "Analyze Chart" for **dual-processing analysis**:
+     - Edge Sentinel (local model) for pattern recognition
+     - Gemini Vision for technical analysis
+     - Combined comprehensive report
 
-3. **Compare Tab** (Compare arrows icon)
-   - Enter stock symbol (e.g., "RELIANCE")
-   - Click demo buttons for popular stocks
-   - View comprehensive analysis
+3. **AI Chat Overlay** (Floating button - bottom right)
+   - Click the chat icon to open AI assistant
+   - Ask questions like:
+     - "Search for IT stocks"
+     - "Compare RELIANCE with its peers"
+     - "Show me my portfolio analysis"
+     - "Find undervalued banking stocks"
+   - The AI agent will use tools automatically to help you
 
 ### Troubleshooting Chrome
 
