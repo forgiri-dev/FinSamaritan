@@ -1,296 +1,238 @@
-# FinSamaritan - Agentic AI Financial Assistant
+# 🚀 FinSamaritan: Smart Portfolio Manager with AI Agent Overlay
 
-**FinSamaritan** is an "Agentic AI" Financial Assistant that goes beyond simple chatbots. It has tools: it can query databases, analyze images of charts, and cross-reference real-time news.
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![Gemini](https://img.shields.io/badge/Google%20Gemini-2.5-orange.svg)](https://ai.google.dev/)
+[![AI](https://img.shields.io/badge/AI-Agentic%20AI-green.svg)](https://ai.google.dev/)
+[![Flutter](https://img.shields.io/badge/Flutter-Mobile%20%26%20Web-blue.svg)](https://flutter.dev/)
 
-## 🎯 Project Overview
+**Revolutionize Your Investing: AI-Powered Portfolio Management in One Unified Dashboard!** 💡📈
 
-**Goal**: To democratize financial literacy by translating complex data into simple insights.
+## 🏆 Team FinSamaritan
 
-**The "Winning" Hook**: Uses a Hybrid Architecture—combining a static local database (for speed) with Google Search Grounding (for accuracy) and Gemini Vision (for technical analysis).
+- **Harsh Giri** (Team Leader) 
+- **Malika Parveen** 
+- **Zaid Iqbal** 
+- **Lakshay Garg** 
 
-## 🏗️ Tech Stack
+## 🔥 The Problem
 
-| Component | Technology | Why |
-|-----------|-----------|-----|
-| Frontend | Flutter (Dart) | Single codebase for Android/Web. Fast UI prototyping. |
-| Backend | Python (FastAPI) | Native support for AI libraries. Fast and lightweight. |
-| AI Brain | Gemini 1.5 Flash | For the "Agent" (Screener) because it's fast and cheap. |
-| AI Vision | Gemini 1.5 Pro | For "Chart Analysis" because it handles complex images better. |
-| Database | Pandas (In-Memory) | For the Hackathon, a CSV loaded into RAM is 100x faster than SQL. |
-| Data Source | yfinance | To fetch real-time prices for the "Top 50" stocks. |
+Investors today are overwhelmed—juggling **10+ different tabs** for news, charts, screeners, and analysis tools. Switching between platforms wastes time, increases errors, and misses critical insights. Traditional portfolio managers lack intelligence, while AI tools are fragmented and expensive. 📉😩
 
-## 📁 Project Structure
+## ✨ The Solution
+
+**FinSamaritan** is your AI-powered financial companion: a unified dashboard with an intelligent agent that handles the heavy lifting. Search stocks, manage portfolios, and get expert-level advice—all in one place. Our AI "Brain" uses custom tools for personalized financial guidance, while dual-engine analysis delivers unparalleled accuracy. 🎯🤖
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Why It Rocks |
+|-----------|------------|--------------|
+| 🤖 **AI Brain** | Google Gemini 2.5 | Lightning-fast agentic AI with custom tools for financial advice |
+| 🧠 **Custom ML** | Edge Sentinel (TensorFlow Lite) | Local model for instant technical analysis |
+| 👁️ **Vision AI** | Google Gemini Vision | Advanced chart interpretation for support/resistance |
+| 🐍 **Backend** | Python + FastAPI | Scalable API with native AI/ML support |
+| 📱 **Frontend** | Flutter (Dart) | Cross-platform magic: Android, iOS, Web from one codebase |
+| 💾 **Database** | CSV-based (Pandas) | Lightning-fast in-memory stock data for hackathon speed |
+
+## 🔄 How It Works
+
+1. **📊 Portfolio Management**: Search and manage holdings from our local CSV database of top stocks
+2. **🧠 AI Agent Activation**: Query in natural language—"Show me undervalued tech stocks under $50"
+3. **📈 Dual-Engine Analysis**: Upload a chart → Edge Sentinel processes patterns + Gemini Vision analyzes visuals → Combined insights delivered instantly
+4. **💡 Smart Advice**: Get personalized recommendations with reasoning traces
+
+**Flow**: Upload Chart → Dual Processing (Local ML + Cloud Vision) → AI-Powered Result 📊➡️🤖➡️💡
+
+## 📊 Edge Sentinel
+**Edge Sentinel** is our proprietary machine learning model that brings AI-powered technical analysis directly to your device. Trained on thousands of candlestick patterns, it provides instant, privacy-preserving insights without relying on cloud services.
+
+### 🚀 Capabilities
+- **Pattern Recognition**: Detects 12+ candlestick patterns including:
+  - **Reversal Patterns**: Hammer, Shooting Star, Morning Star, Evening Star
+  - **Continuation Patterns**: Doji, Engulfing (Bullish/Bearish)
+  - **Complex Patterns**: Multiple candlestick formations
+- **Trend Context**: Analyzes patterns in different market contexts:
+  - 📈 **Uptrend**: Bullish reversals, continuations
+  - 📉 **Downtrend**: Bearish reversals, continuations  
+  - ➡️ **Sideways**: Range-bound market signals
+- **Real-time Analysis**: Processes charts instantly on-device
+- **Accuracy Boost**: Complements Gemini Vision for dual-engine precision
+
+### 🏗️ Technical Details
+- **Framework**: TensorFlow Lite for edge deployment
+- **Training Data**: 10,000+ labeled candlestick images across 15 pattern categories
+- **Model Size**: Lightweight (< 5MB) for mobile optimization
+- **Inference Speed**: < 100ms per analysis
+- **Privacy**: All processing happens locally - no data sent to servers
+
+### 🎯 Why Edge Sentinel?
+- **⚡ Speed**: Instant results without network latency
+- **🔒 Privacy**: Your charts never leave your device
+- **💰 Cost-Effective**: No API calls for basic pattern recognition
+- **🔄 Offline**: Works without internet connection
+- **🤝 Synergy**: Pairs perfectly with Gemini Vision for comprehensive analysis
+
+**Training Pipeline**: Raw chart images → Data augmentation → CNN feature extraction → Pattern classification → TFLite conversion → Edge deployment
+
+
+##  Monorepo Structure
 
 ```
 FinSamaritan/
-├── backend/
-│   ├── main.py            (FastAPI Server)
-│   ├── agent_tools.py     (Custom Python functions for the AI)
-│   ├── stock_data.csv     (Your dataset - generated)
-│   ├── stock_data_generator.py  (Your existing generator)
-│   ├── requirements.txt
-│   └── .env               (API Keys - create this)
-├── frontend/
-│   ├── lib/
-│   │   ├── main.dart
-│   │   ├── services/      (API logic)
-│   │   └── screens/       (UI Pages)
-│   └── pubspec.yaml
-└── .gitignore
+├── 📄 generate_stock_data.py          # Stock data generation script
+├── 📄 new__version                    # Version notes
+├── 📄 QUICK_START.md                  # Quick start guide
+├── 📄 README.md                       # This file
+├── 📄 SETUP_GUIDE.md                  # Detailed setup guide
+├── 🔧 backend/                        # Python FastAPI backend
+│   ├── 📄 agent_tools.py              # AI agent custom tools
+│   ├── 📄 check_gemini_api.py         # API key validation
+│   ├── 📄 data_engine.py              # Data processing engine
+│   ├── 📄 database.py                 # Database utilities
+│   ├── 📄 DEBUG_ERRORS.md             # Debug documentation
+│   ├── 📄 main.py                     # FastAPI server entry point
+│   ├── 📄 portfolio.json              # Portfolio data
+│   ├── 📄 requirements.txt            # Python dependencies
+│   ├── 📄 restart_server.ps1         # Windows server restart script
+│   ├── 📄 stock_data_generator.py     # Generate stock CSV data
+│   ├── 📄 stock_data.csv              # Generated stock database
+│   ├── 📄 test_backend.py             # Backend tests
+│   ├── 📄 tools.py                    # Utility functions
+│   ├── 📄 TROUBLESHOOTING.md          # Backend troubleshooting
+│   └── 📄 .env.example                # Environment variables template
+├── 📱 frontend/                       # Flutter cross-platform app
+│   ├── 📄 analysis_options.yaml       # Dart analysis config
+│   ├── 📄 pubspec.yaml                # Flutter dependencies
+│   ├── 📱 android/                    # Android platform files
+│   ├── 🍎 ios/                        # iOS platform files
+│   ├── 🐧 linux/                      # Linux platform files
+│   ├── 🍏 macos/                      # macOS platform files
+│   ├── 🌐 web/                        # Web platform files
+│   ├── 🧪 test/                       # Flutter tests
+│   └── 📱 lib/                        # Flutter source code
+│       ├── 📄 main.dart               # App entry point
+│       ├── 📱 screens/                # UI screens
+│       ├── 🔧 services/               # API services
+│       └── 🧩 widgets/                # Reusable UI components
+├── 🤖 model_training/                 # ML model training & Edge Sentinel
+│   ├── 📄 convert_to_tflite.py        # Convert to TensorFlow Lite
+│   ├── 📄 data_generator.py           # Training data generation
+│   ├── 📄 IMPLEMENTATION_SUMMARY.md   # Implementation details
+│   ├── 📄 QUICK_START.md              # Training quick start
+│   ├── 📄 README.md                   # Training documentation
+│   ├── 📄 requirements.txt            # Training dependencies
+│   ├── 📄 SIMPLE_TRAINING_GUIDE.md    # Simple training guide
+│   ├── 📄 test_model.py               # Model testing
+│   ├── 📄 train_model.ipynb           # Jupyter training notebook
+│   ├── 📄 train_model.py              # Training script
+│   ├── 📄 train_simple.py             # Simplified training
+│   ├── 📄 train.bat                   # Windows training batch
+│   ├── 📄 train.sh                    # Linux/Mac training script
+│   ├── 📄 TRAINING_GUIDE.md           # Comprehensive training guide
+│   ├── 🤖 models/                     # Trained models
+│   │   ├── 📄 labels.txt              # Model labels
+│   │   ├── 📄 model_metadata.json     # Model metadata
+│   │   ├── 📄 model_unquant.tflite    # Edge Sentinel model
+│   │   └── 📄 training_history.json   # Training metrics
+│   └── 📊 training_data/              # Training datasets
+│       ├── 📄 labels.txt              # Data labels
+│       ├── 📊 doji_downtrend/         # Doji pattern data
+│       ├── 📊 doji_sideways/
+│       ├── 📊 doji_uptrend/
+│       ├── 📊 engulfing_bearish_downtrend/
+│       ├── 📊 engulfing_bearish_sideways/
+│       ├── 📊 engulfing_bearish_uptrend/
+│       ├── 📊 engulfing_bullish_downtrend/
+│       ├── 📊 engulfing_bullish_sideways/
+│       ├── 📊 engulfing_bullish_uptrend/
+│       ├── 📊 evening_star_downtrend/
+│       ├── 📊 evening_star_sideways/
+│       ├── 📊 evening_star_uptrend/
+│       ├── 📊 hammer_downtrend/
+│       ├── 📊 hammer_sideways/
+│       ├── 📊 hammer_uptrend/
+│       ├── 📊 morning_star_downtrend/
+│       ├── 📊 morning_star_sideways/
+│       ├── 📊 morning_star_uptrend/
+│       ├── 📊 shooting_star_downtrend/
+│       ├── 📊 shooting_star_sideways/
+│       ├── 📊 shooting_star_uptrend/
+│       └── 📊 normal_downtrend/       # Normal patterns
+└── 📂 flutter/                        # Flutter SDK (if extracted here)
 ```
 
-## 📚 Setup Guides
+## 🚀 Installation & Setup
 
-**New to FinSamaritan? Start here:**
+### Prerequisites
+- Python 3.11+
+- Flutter SDK
+- Google Gemini API Key
 
-- **[QUICK_START.md](QUICK_START.md)** - Get running in 5 minutes! ⚡
-- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Complete step-by-step guide for Chrome, Windows, and Android 📖
+### Quick Start (5 Minutes!)
 
-## 🚀 Step-by-Step Setup Instructions
+1. **Clone & Navigate**:
+   ```bash
+   git clone <your-repo>
+   cd FinSamaritan
+   ```
 
-### Step 1: Backend Setup
-
-1. **Navigate to the backend directory:**
+2. **Backend Setup**:
    ```bash
    cd backend
-   ```
-
-2. **Create a virtual environment (recommended):**
-   ```bash
-   # Windows
    python -m venv venv
+   # Windows
    venv\Scripts\activate
-
    # Mac/Linux
-   python3 -m venv venv
    source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
    pip install -r requirements.txt
-   ```
-
-4. **Get your Gemini API Key:**
-   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Sign in with your Google account
-   - Click "Create API Key"
-   - Copy the API key
-
-5. **Create `.env` file:**
-   ```bash
-   # Copy the example file
-   copy .env.example .env   # Windows
-   cp .env.example .env    # Mac/Linux
-   ```
-   
-   Then edit `.env` and add your API key:
-   ```
-   GEMINI_API_KEY=your_actual_api_key_here
-   ```
-
-6. **Generate stock data:**
-   ```bash
-   # Run your stock data generator
-   python stock_data_generator.py
-   ```
-   
-   This should create `stock_data.csv` in the backend directory.
-
-7. **Start the backend server:**
-   ```bash
+   cp .env.example .env
+   # Edit .env with your GEMINI_API_KEY
    python main.py
    ```
-   
-   Or using uvicorn directly:
+
+3. **Frontend Setup**:
    ```bash
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-   
-   You should see:
-   ```
-   ✓ Stock data loaded successfully
-   INFO:     Uvicorn running on http://0.0.0.0:8000
-   ```
-
-8. **Test the backend:**
-   - Open your browser and go to: `http://localhost:8000`
-   - You should see the API welcome message
-   - Test endpoint: `http://localhost:8000/docs` (FastAPI Swagger UI)
-
-### Step 2: Frontend Setup
-
-1. **Navigate to the frontend directory:**
-   ```bash
-   cd frontend
-   ```
-
-2. **Install Flutter dependencies:**
-   ```bash
+   cd ../frontend
    flutter pub get
+   flutter run  # Choose your platform
    ```
 
-3. **Check Flutter setup:**
-   ```bash
-   flutter doctor
-   ```
-   
-   Make sure you have at least one device/emulator available.
+4. **🎉 Done!** Open the app and start managing your portfolio with AI!
 
-4. **Run the Flutter app:**
-   ```bash
-   # For Android Emulator
-   flutter run
-
-   # For iOS Simulator (Mac only)
-   flutter run -d ios
-
-   # For Web
-   flutter run -d chrome
-   ```
-
-### Step 3: Connect Frontend to Backend
-
-**Important**: The frontend is configured to connect to:
-- **Android Emulator**: `http://10.0.2.2:8000` (automatically mapped to localhost)
-- **iOS Simulator**: `http://localhost:8000`
-- **Web**: `http://localhost:8000`
-
-The API service (`frontend/lib/services/api_service.dart`) handles this automatically.
-
-**If you're running on a physical device:**
-- Find your computer's IP address:
-  ```bash
-  # Windows
-  ipconfig
-
-  # Mac/Linux
-  ifconfig
-  ```
-- Update `api_service.dart` to use your IP: `http://YOUR_IP:8000`
-
-### Step 4: Testing the Features
-
-#### Feature 1: Smart Screener
-1. Open the app
-2. Go to the "Screener" tab
-3. Try queries like:
-   - "Show me undervalued IT stocks"
-   - "Find high growth banks"
-   - "Show me cheap pharma stocks"
-4. Watch the "Reasoning Trace" to see how the AI thinks
-
-#### Feature 2: Chart Doctor
-1. Go to the "Chart Doctor" tab
-2. Click "Gallery" or "Camera"
-3. Upload a trading chart image
-4. Click "Analyze Chart"
-5. See the AI's technical analysis with support/resistance levels
-
-#### Feature 3: Peer Comparison
-1. Go to the "Compare" tab
-2. Enter a stock symbol (e.g., "RELIANCE", "TCS")
-3. Click search
-4. See comprehensive analysis combining fundamentals + news
-
-## 🎬 Demo Mode
-
-The app includes demo query buttons for quick testing during presentations:
-- **Screener**: Pre-filled queries like "Show me undervalued IT stocks"
-- **Compare**: Quick buttons for popular stocks (RELIANCE, TCS, HDFCBANK, etc.)
-
-## 🐛 Troubleshooting
-
-### Backend Issues
-
-**Error: "GEMINI_API_KEY not found"**
-- Make sure you created `.env` file in the `backend/` directory
-- Check that the file contains: `GEMINI_API_KEY=your_key_here`
-- Restart the server after creating `.env`
-
-**Error: "stock_data.csv not found"**
-- Run `python stock_data_generator.py` in the backend directory
-- Make sure `stock_data.csv` is created in `backend/`
-
-**Port 8000 already in use:**
-```bash
-# Find and kill the process (Windows)
-netstat -ano | findstr :8000
-taskkill /PID <PID> /F
-
-# Mac/Linux
-lsof -ti:8000 | xargs kill
+### Environment Variables
+Create `backend/.env`:
+```
+GEMINI_API_KEY=your_api_key_here
 ```
 
-### Frontend Issues
-
-**"Error connecting to API"**
-- Make sure the backend is running on port 8000
-- Check the API URL in `api_service.dart`
-- For Android emulator, use `10.0.2.2:8000`
-- For physical device, use your computer's IP address
-
-**"flutter pub get" fails**
-- Make sure you have Flutter SDK installed
-- Run `flutter doctor` to check setup
-- Try `flutter clean` then `flutter pub get`
-
-**App crashes on image picker**
-- Make sure you've granted camera/gallery permissions
-- For Android: Check `AndroidManifest.xml` permissions
-- For iOS: Check `Info.plist` permissions
-
-## 📝 API Endpoints
-
-### POST `/agent`
-Natural language stock screener
-```json
-{
-  "query": "Show me cheap IT stocks",
-  "show_reasoning": true
-}
-```
-
-### POST `/analyze-chart`
-Visual technical analysis
-```json
-{
-  "image_base64": "base64_encoded_image_string",
-  "additional_context": "Optional context"
-}
-```
-
-### POST `/compare`
-Competitive landscape analysis
-```json
-{
-  "symbol": "RELIANCE"
-}
-```
 
 ## 🎯 Key Features
 
-1. **Natural Language Screener**: Ask in plain English, get filtered results
-2. **Visual Chart Analysis**: Upload charts, get technical analysis
-3. **Competitive Landscape**: Combine fundamentals with real-time news
-4. **Reasoning Trace**: See how the AI thinks (for judges!)
+- **📱 Unified Dashboard**: No more tab-switching—everything in one app
+- **🧠 AI Agent**: Conversational financial advice with custom tools
+- **📊 Portfolio Manager**: Search, track, and manage stock holdings
+- **🔍 Dual-Engine Analysis**: Local ML + Cloud Vision for unbeatable accuracy
+- **⚡ Fast & Local**: CSV-based backend for instant responses
+- **🌐 Cross-Platform**: Flutter powers Android, iOS, and Web
 
-## 📦 Dependencies
+## 🐛 Troubleshooting
 
-### Backend (`requirements.txt`)
-- fastapi
-- uvicorn
-- pandas
-- google-generativeai
-- python-dotenv
-- yfinance
-- pillow
-- pydantic
+- **API Key Issues**: Ensure `.env` is in `backend/` with correct key
+- **Connection Errors**: Check backend is running on port 8000
+- **Flutter Issues**: Run `flutter doctor` and ensure devices are connected
 
-### Frontend (`pubspec.yaml`)
-- flutter
-- http
-- flutter_markdown
-- image_picker
+## 📝 API Endpoints
+
+- `POST /agent` - AI-powered stock screening
+- `POST /analyze-chart` - Dual-engine chart analysis
+- `POST /portfolio` - Manage holdings
+- 
+---
+
+<p align="center">
+  Built with ❤️ by CACHE CAT
+</p>
+
+
+
 
 
